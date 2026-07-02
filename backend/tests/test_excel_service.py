@@ -1,5 +1,6 @@
 from datetime import date, timedelta
-from app.services.excel_service import EXPECTED_HEADERS, apply_delay_rule, normalize_status, preview_excel
+import warnings
+from app.services.excel_service import EXPECTED_HEADERS, _parse_date, apply_delay_rule, normalize_status, preview_excel
 import pandas as pd
 from io import BytesIO
 
@@ -29,3 +30,12 @@ def test_delay_rule_marks_overdue_undelivered_orders():
 
 def test_normalizes_courier_status_text():
     assert normalize_status("Delivered to consignee - Code Verified delivery") == "Delivered"
+
+
+def test_parse_date_accepts_indian_excel_format_without_warning():
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        assert _parse_date("31.12.2026") == date(2026, 12, 31)
+
+    messages = [str(item.message) for item in caught]
+    assert not any("Parsing dates" in message for message in messages)

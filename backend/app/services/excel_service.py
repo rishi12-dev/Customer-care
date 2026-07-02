@@ -34,7 +34,16 @@ def _clean(value):
 def _parse_date(value) -> date | None:
     if value in (None, ""):
         return None
-    parsed = pd.to_datetime(value, errors="coerce")
+    if isinstance(value, date) and not isinstance(value, datetime):
+        return value
+
+    text = str(value).strip()
+    for date_format in ("%Y-%m-%d", "%d.%m.%Y", "%d/%m/%Y", "%d-%m-%Y", "%Y/%m/%d"):
+        parsed = pd.to_datetime(text, format=date_format, errors="coerce")
+        if not pd.isna(parsed):
+            return parsed.date()
+
+    parsed = pd.to_datetime(text, errors="coerce", dayfirst=True)
     if pd.isna(parsed):
         return None
     return parsed.date()
