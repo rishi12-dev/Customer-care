@@ -15,12 +15,16 @@ router = APIRouter(tags=["portal"])
 
 @router.get("/dashboard", response_model=DashboardResponse)
 def dashboard(user: User = Depends(current_user), db: Session = Depends(get_db)):
-    total = db.query(func.count(Order.id)).scalar() or 0
+    status_rows = db.query(Order.current_status, func.count(Order.id)).group_by(Order.current_status).all()
+    status_counts = {str(status or "").lower(): count for status, count in status_rows}
+    total = sum(status_counts.values())
+
     def count_status(name: str) -> int:
-        return db.query(func.count(Order.id)).filter(func.lower(Order.current_status) == name.lower()).scalar() or 0
+        return status_counts.get(name.lower(), 0)
+
     latest = db.query(UploadHistory).order_by(UploadHistory.created_at.desc()).first()
     courier_wise = [{"name": row[0], "value": row[1]} for row in db.query(Order.shipment, func.count(Order.id)).group_by(Order.shipment).order_by(func.count(Order.id).desc()).limit(10).all()]
-    status_wise = [{"name": row[0], "value": row[1]} for row in db.query(Order.current_status, func.count(Order.id)).group_by(Order.current_status).all()]
+    status_wise = [{"name": status, "value": count} for status, count in status_rows]
     daily = [{"date": str(row[0]), "records": row[1]} for row in db.query(func.date(UploadHistory.created_at), func.sum(UploadHistory.records)).group_by(func.date(UploadHistory.created_at)).order_by(func.date(UploadHistory.created_at).desc()).limit(14).all()]
     pending = max(total - count_status("Delivered"), 0)
     return {
