@@ -15,6 +15,15 @@ from app.services.bootstrap import create_schema, seed_initial_data
 
 settings = get_settings()
 limiter = Limiter(key_func=get_remote_address, default_limits=["120/minute"])
+allowed_origins = list(
+    dict.fromkeys(
+        [
+            *settings.cors_origins,
+            "https://customercare-3795c.web.app",
+            "https://customercare-3795c.firebaseapp.com",
+        ]
+    )
+)
 
 app = FastAPI(title=settings.app_name, version="1.0.0")
 app.state.limiter = limiter
@@ -23,7 +32,7 @@ app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(CSRFMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "X-CSRF-Token"],
