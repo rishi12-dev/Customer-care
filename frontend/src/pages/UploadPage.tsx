@@ -5,12 +5,42 @@ import { api } from "../api/client";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 
+interface UploadResult {
+  records: number;
+  duration_ms: number;
+  errors: string[];
+  warnings: string[];
+  backup_id: number;
+  job_id?: string | null;
+  status?: "processing" | "completed" | "failed";
+}
+
+const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
 export function UploadPage() {
   const queryClient = useQueryClient();
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<any>(null);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+
+  async function waitForUpload(jobId: string) {
+    for (let attempt = 1; attempt <= 180; attempt += 1) {
+      await wait(2000);
+      const data = await api<UploadResult>(`/upload/jobs/${jobId}`);
+      if (data.status === "completed") {
+        setMessage(`Upload complete: ${data.records} records saved in ${data.duration_ms} ms. Backup #${data.backup_id} created.`);
+        setPreview(null);
+        queryClient.invalidateQueries();
+        return;
+      }
+      if (data.status === "failed") {
+        throw new Error(data.errors?.[0] || "Upload failed");
+      }
+      setMessage(`Upload processing... ${attempt * 2}s elapsed. Please keep this page open.`);
+    }
+    throw new Error("Upload is still processing. Please check Upload History after a few minutes.");
+  }
 
   async function send(path: string) {
     if (!file) return;
@@ -24,9 +54,14 @@ export function UploadPage() {
         setPreview(data);
         setMessage(data.valid ? `Preview valid: ${data.records} rows checked. Click Replace Working Data to finish upload.` : "Preview failed. Working data was not changed.");
       } else {
-        setMessage(`Upload complete: ${data.records} records saved in ${data.duration_ms} ms. Backup #${data.backup_id} created.`);
-        setPreview(null);
-        queryClient.invalidateQueries();
+        if (data.status === "processing" && data.job_id) {
+          setMessage("Upload processing... Please keep this page open.");
+          await waitForUpload(data.job_id);
+        } else {
+          setMessage(`Upload complete: ${data.records} records saved in ${data.duration_ms} ms. Backup #${data.backup_id} created.`);
+          setPreview(null);
+          queryClient.invalidateQueries();
+        }
       }
     } catch (exc) {
       setMessage(exc instanceof Error ? exc.message : "Upload failed");

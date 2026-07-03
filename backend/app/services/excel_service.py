@@ -20,18 +20,6 @@ EXPECTED_HEADERS = [
     "Delivery Date",
 ]
 BATCH_SIZE = 1000
-ORDER_COLUMNS = [
-    "order_no",
-    "customer_name",
-    "customer_phone_number",
-    "alt_no",
-    "docket_number",
-    "shipment",
-    "remark",
-    "current_status",
-    "expected_delivery",
-    "delivery_date",
-]
 
 
 def _clean(value):
@@ -141,14 +129,6 @@ def create_backup(db: Session, user: User, label: str, ip_address: str | None) -
 
 def _insert_order_rows(db: Session, rows: list[dict]) -> None:
     if not rows:
-        return
-    if db.bind and db.bind.dialect.name == "postgresql":
-        raw_connection = db.connection().connection.driver_connection
-        columns = ", ".join(ORDER_COLUMNS)
-        with raw_connection.cursor() as cursor:
-            with cursor.copy(f"COPY orders ({columns}) FROM STDIN") as copy:
-                for row in rows:
-                    copy.write_row(tuple(row[column] for column in ORDER_COLUMNS))
         return
     db.bulk_insert_mappings(Order, rows)
 

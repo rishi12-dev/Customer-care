@@ -82,6 +82,8 @@ class UploadCommitResponse(BaseModel):
     errors: list[str]
     warnings: list[str]
     backup_id: int
+    job_id: str | None = None
+    status: str = "completed"
 
 
 class DashboardResponse(BaseModel):
