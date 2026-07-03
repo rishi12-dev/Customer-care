@@ -19,6 +19,7 @@ EXPECTED_HEADERS = [
     "Expected Delivery",
     "Delivery Date",
 ]
+BATCH_SIZE = 1000
 
 
 def _clean(value):
@@ -137,33 +138,40 @@ def commit_upload(db: Session, content: bytes, filename: str, user: User, ip_add
         return {"records": 0, "duration_ms": 0, "errors": errors, "warnings": warnings, "backup_id": 0}
 
     backup = create_backup(db, user, f"Automatic backup before {filename}", ip_address)
-    db.query(Order).delete()
-    records: list[Order] = []
+    db.query(Order).delete(synchronize_session=False)
+    records: list[dict] = []
+    record_count = 0
     for _, row in frame.iterrows():
         expected = _parse_date(_clean(row["Expected Delivery"]))
         delivered = _parse_date(_clean(row["Delivery Date"]))
         status = apply_delay_rule(str(_clean(row["CURRENT STATUS"]) or "Pending"), expected, delivered)
         records.append(
-            Order(
-                order_no=str(_clean(row["ORDER NO"]) or ""),
-                customer_name=str(_clean(row["CUSTOMER NAME"]) or ""),
-                customer_phone_number=str(_clean(row["CUSTOMER PHONE NUMBER"]) or ""),
-                alt_no=_clean(row["ALT NO"]),
-                docket_number=str(_clean(row["DOCKET NUMBER"]) or ""),
-                shipment=str(_clean(row["SHIPMENT"]) or ""),
-                remark=_clean(row["REMARK"]),
-                current_status=status,
-                expected_delivery=expected,
-                delivery_date=delivered,
-            )
+            {
+                "order_no": str(_clean(row["ORDER NO"]) or ""),
+                "customer_name": str(_clean(row["CUSTOMER NAME"]) or ""),
+                "customer_phone_number": str(_clean(row["CUSTOMER PHONE NUMBER"]) or ""),
+                "alt_no": _clean(row["ALT NO"]),
+                "docket_number": str(_clean(row["DOCKET NUMBER"]) or ""),
+                "shipment": str(_clean(row["SHIPMENT"]) or ""),
+                "remark": _clean(row["REMARK"]),
+                "current_status": status,
+                "expected_delivery": expected,
+                "delivery_date": delivered,
+            }
         )
-    db.bulk_save_objects(records)
+        if len(records) >= BATCH_SIZE:
+            db.bulk_insert_mappings(Order, records)
+            record_count += len(records)
+            records.clear()
+    if records:
+        db.bulk_insert_mappings(Order, records)
+        record_count += len(records)
     duration_ms = int((perf_counter() - started) * 1000)
-    history = UploadHistory(filename=filename, uploaded_by_id=user.id, records=len(records), duration_ms=duration_ms, status=UploadStatus.success, errors=[], warnings=warnings)
+    history = UploadHistory(filename=filename, uploaded_by_id=user.id, records=record_count, duration_ms=duration_ms, status=UploadStatus.success, errors=[], warnings=warnings)
     db.add(history)
-    audit(db, user, AuditAction.upload, ip_address, {"filename": filename, "status": "success", "records": len(records)})
+    audit(db, user, AuditAction.upload, ip_address, {"filename": filename, "status": "success", "records": record_count})
     db.commit()
-    return {"records": len(records), "duration_ms": duration_ms, "errors": [], "warnings": warnings, "backup_id": backup.id}
+    return {"records": record_count, "duration_ms": duration_ms, "errors": [], "warnings": warnings, "backup_id": backup.id}
 
 
 def restore_backup(db: Session, backup_id: int, user: User, ip_address: str | None) -> dict:
@@ -171,11 +179,18 @@ def restore_backup(db: Session, backup_id: int, user: User, ip_address: str | No
     if not backup:
         raise ValueError("Backup not found")
     create_backup(db, user, f"Automatic backup before restoring #{backup_id}", ip_address)
-    db.query(Order).delete()
+    db.query(Order).delete(synchronize_session=False)
     rows = []
+    record_count = 0
     for item in backup.payload:
-        rows.append(Order(**{**item, "expected_delivery": _parse_date(item.get("expected_delivery")), "delivery_date": _parse_date(item.get("delivery_date"))}))
-    db.bulk_save_objects(rows)
-    audit(db, user, AuditAction.restore, ip_address, {"backup_id": backup_id, "records": len(rows)})
+        rows.append({**item, "expected_delivery": _parse_date(item.get("expected_delivery")), "delivery_date": _parse_date(item.get("delivery_date"))})
+        if len(rows) >= BATCH_SIZE:
+            db.bulk_insert_mappings(Order, rows)
+            record_count += len(rows)
+            rows.clear()
+    if rows:
+        db.bulk_insert_mappings(Order, rows)
+        record_count += len(rows)
+    audit(db, user, AuditAction.restore, ip_address, {"backup_id": backup_id, "records": record_count})
     db.commit()
-    return {"records": len(rows), "backup_id": backup_id}
+    return {"records": record_count, "backup_id": backup_id}
