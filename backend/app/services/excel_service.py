@@ -20,6 +20,18 @@ EXPECTED_HEADERS = [
     "Delivery Date",
 ]
 BATCH_SIZE = 1000
+ORDER_COLUMNS = [
+    "order_no",
+    "customer_name",
+    "customer_phone_number",
+    "alt_no",
+    "docket_number",
+    "shipment",
+    "remark",
+    "current_status",
+    "expected_delivery",
+    "delivery_date",
+]
 
 
 def _clean(value):
@@ -127,6 +139,20 @@ def create_backup(db: Session, user: User, label: str, ip_address: str | None) -
     return backup
 
 
+def _insert_order_rows(db: Session, rows: list[dict]) -> None:
+    if not rows:
+        return
+    if db.bind and db.bind.dialect.name == "postgresql":
+        raw_connection = db.connection().connection.driver_connection
+        columns = ", ".join(ORDER_COLUMNS)
+        with raw_connection.cursor() as cursor:
+            with cursor.copy(f"COPY orders ({columns}) FROM STDIN") as copy:
+                for row in rows:
+                    copy.write_row(tuple(row[column] for column in ORDER_COLUMNS))
+        return
+    db.bulk_insert_mappings(Order, rows)
+
+
 def commit_upload(db: Session, content: bytes, filename: str, user: User, ip_address: str | None) -> dict:
     started = perf_counter()
     frame, errors, warnings = read_excel(content)
@@ -160,11 +186,11 @@ def commit_upload(db: Session, content: bytes, filename: str, user: User, ip_add
             }
         )
         if len(records) >= BATCH_SIZE:
-            db.bulk_insert_mappings(Order, records)
+            _insert_order_rows(db, records)
             record_count += len(records)
             records.clear()
     if records:
-        db.bulk_insert_mappings(Order, records)
+        _insert_order_rows(db, records)
         record_count += len(records)
     duration_ms = int((perf_counter() - started) * 1000)
     history = UploadHistory(filename=filename, uploaded_by_id=user.id, records=record_count, duration_ms=duration_ms, status=UploadStatus.success, errors=[], warnings=warnings)
@@ -185,11 +211,11 @@ def restore_backup(db: Session, backup_id: int, user: User, ip_address: str | No
     for item in backup.payload:
         rows.append({**item, "expected_delivery": _parse_date(item.get("expected_delivery")), "delivery_date": _parse_date(item.get("delivery_date"))})
         if len(rows) >= BATCH_SIZE:
-            db.bulk_insert_mappings(Order, rows)
+            _insert_order_rows(db, rows)
             record_count += len(rows)
             rows.clear()
     if rows:
-        db.bulk_insert_mappings(Order, rows)
+        _insert_order_rows(db, rows)
         record_count += len(rows)
     audit(db, user, AuditAction.restore, ip_address, {"backup_id": backup_id, "records": record_count})
     db.commit()
