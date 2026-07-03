@@ -10,6 +10,7 @@ from app.config.settings import get_settings
 from app.controllers import auth_controller, portal_controller, upload_controller, user_controller
 from app.middleware.csrf import CSRFMiddleware
 from app.middleware.security import SecurityHeadersMiddleware
+from app.services.excel_service import delete_automatic_backups
 from app.services.bootstrap import create_schema, seed_initial_data
 
 
@@ -50,6 +51,8 @@ def startup():
     db = SessionLocal()
     try:
         seed_initial_data(db)
+        if delete_automatic_backups(db):
+            db.commit()
     finally:
         db.close()
 

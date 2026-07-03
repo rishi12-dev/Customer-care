@@ -16,6 +16,7 @@ interface UploadResult {
 }
 
 const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
+const uploadMessage = (data: UploadResult) => `Upload complete: ${data.records} records replaced working data in ${data.duration_ms} ms.`;
 
 export function UploadPage() {
   const queryClient = useQueryClient();
@@ -29,7 +30,7 @@ export function UploadPage() {
       await wait(2000);
       const data = await api<UploadResult>(`/upload/jobs/${jobId}`);
       if (data.status === "completed") {
-        setMessage(`Upload complete: ${data.records} records saved in ${data.duration_ms} ms. Backup #${data.backup_id} created.`);
+        setMessage(uploadMessage(data));
         setPreview(null);
         queryClient.invalidateQueries();
         return;
@@ -52,13 +53,13 @@ export function UploadPage() {
       const data = await api<any>(path, { method: "POST", body });
       if (path.includes("preview")) {
         setPreview(data);
-        setMessage(data.valid ? `Preview valid: ${data.records} rows checked. Click Replace Working Data to finish upload.` : "Preview failed. Working data was not changed.");
+        setMessage(data.valid ? `Preview valid: ${data.records} rows checked. Click Replace Working Data to delete old orders and save this file.` : "Preview failed. Working data was not changed.");
       } else {
         if (data.status === "processing" && data.job_id) {
           setMessage("Upload processing... Please keep this page open.");
           await waitForUpload(data.job_id);
         } else {
-          setMessage(`Upload complete: ${data.records} records saved in ${data.duration_ms} ms. Backup #${data.backup_id} created.`);
+          setMessage(uploadMessage(data));
           setPreview(null);
           queryClient.invalidateQueries();
         }

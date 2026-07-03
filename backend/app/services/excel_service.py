@@ -127,6 +127,10 @@ def create_backup(db: Session, user: User, label: str, ip_address: str | None) -
     return backup
 
 
+def delete_automatic_backups(db: Session) -> int:
+    return db.query(Backup).filter(Backup.label.like("Automatic backup before%")).delete(synchronize_session=False)
+
+
 def _insert_order_rows(db: Session, rows: list[dict]) -> None:
     if not rows:
         return
@@ -143,7 +147,7 @@ def commit_upload(db: Session, content: bytes, filename: str, user: User, ip_add
         db.commit()
         return {"records": 0, "duration_ms": 0, "errors": errors, "warnings": warnings, "backup_id": 0}
 
-    backup = create_backup(db, user, f"Automatic backup before {filename}", ip_address)
+    delete_automatic_backups(db)
     db.query(Order).delete(synchronize_session=False)
     records: list[dict] = []
     record_count = 0
@@ -177,14 +181,13 @@ def commit_upload(db: Session, content: bytes, filename: str, user: User, ip_add
     db.add(history)
     audit(db, user, AuditAction.upload, ip_address, {"filename": filename, "status": "success", "records": record_count})
     db.commit()
-    return {"records": record_count, "duration_ms": duration_ms, "errors": [], "warnings": warnings, "backup_id": backup.id}
+    return {"records": record_count, "duration_ms": duration_ms, "errors": [], "warnings": warnings, "backup_id": 0}
 
 
 def restore_backup(db: Session, backup_id: int, user: User, ip_address: str | None) -> dict:
     backup = db.get(Backup, backup_id)
     if not backup:
         raise ValueError("Backup not found")
-    create_backup(db, user, f"Automatic backup before restoring #{backup_id}", ip_address)
     db.query(Order).delete(synchronize_session=False)
     rows = []
     record_count = 0
