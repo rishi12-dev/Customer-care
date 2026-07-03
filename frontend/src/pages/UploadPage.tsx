@@ -1,10 +1,12 @@
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { UploadCloud } from "lucide-react";
 import { api } from "../api/client";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 
 export function UploadPage() {
+  const queryClient = useQueryClient();
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<any>(null);
   const [message, setMessage] = useState("");
@@ -24,6 +26,7 @@ export function UploadPage() {
       } else {
         setMessage(`Upload complete: ${data.records} records saved in ${data.duration_ms} ms. Backup #${data.backup_id} created.`);
         setPreview(null);
+        queryClient.invalidateQueries();
       }
     } catch (exc) {
       setMessage(exc instanceof Error ? exc.message : "Upload failed");
@@ -37,7 +40,16 @@ export function UploadPage() {
       <Card>
         <label className="grid gap-3">
           <span className="font-semibold">Daily Excel Upload</span>
-          <input className="rounded-md border border-border p-3" type="file" accept=".xlsx,.xls" onChange={(event) => setFile(event.target.files?.[0] ?? null)} />
+          <input
+            className="rounded-md border border-border p-3"
+            type="file"
+            accept=".xlsx,.xls"
+            onChange={(event) => {
+              setFile(event.target.files?.[0] ?? null);
+              setPreview(null);
+              setMessage("");
+            }}
+          />
         </label>
         <div className="mt-4 flex gap-3">
           <Button disabled={!file || busy} onClick={() => send("/upload/preview")}><UploadCloud size={18} /> Step 1: Validate Preview</Button>
