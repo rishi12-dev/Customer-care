@@ -40,7 +40,7 @@ export function SearchPage() {
       {message && <p className="text-sm text-slate-500">{message}</p>}
       <div className="grid gap-4">
         {orders.map((order) => (
-          <Card key={order.id} className="grid gap-4 xl:grid-cols-3">
+          <Card key={order.id} className="grid select-none gap-4 xl:grid-cols-3">
             <div><h2 className="font-semibold">Customer</h2><p className="mt-2 text-lg">{order.customer_name}</p><p className="text-sm text-slate-500">{order.customer_phone_number}</p><p className="text-sm text-slate-500">{order.alt_no ?? "No alternate number"}</p></div>
             <div><h2 className="font-semibold">Shipment</h2><p className="mt-2">{order.order_no}</p><p className="text-sm text-slate-500">{order.shipment} · {order.docket_number}</p><div className="mt-3"><StatusBadge status={order.current_status} /></div><p className="mt-2 text-sm">Expected: {order.expected_delivery ?? "N/A"} · Delivered: {order.delivery_date ?? "N/A"}</p></div>
             <div><h2 className="font-semibold">Tracking</h2><p className="mt-2 min-h-12 text-sm text-slate-600 dark:text-slate-300">{order.remark ?? "No remark recorded"}</p><div className="mt-4 flex flex-wrap gap-2 no-print"><Button className="bg-accent" onClick={() => navigator.clipboard.writeText(order.customer_phone_number)}><Phone size={16} /> Copy Phone</Button><Button onClick={() => navigator.clipboard.writeText(buildStatusMessage(order))}><Copy size={16} /> Copy Status</Button><Button className="bg-slate-900 dark:bg-white dark:text-slate-950" onClick={() => window.print()}><Printer size={16} /> Print</Button></div></div>
