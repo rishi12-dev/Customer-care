@@ -6,13 +6,42 @@ import { Card } from "../components/ui/Card";
 import { Input } from "../components/ui/Input";
 import type { User } from "../types";
 
+const readImage = (file: File) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("Unable to read image"));
+    reader.readAsDataURL(file);
+  });
+
 export function UsersPage() {
   const client = useQueryClient();
   const { data = [] } = useQuery({ queryKey: ["users"], queryFn: () => api<User[]>("/users") });
   const [form, setForm] = useState({ email: "", full_name: "", password: "", role: "customer_care" });
+  const [message, setMessage] = useState("");
   const create = useMutation({ mutationFn: () => api<User>("/users", { method: "POST", body: JSON.stringify(form) }), onSuccess: () => client.invalidateQueries({ queryKey: ["users"] }) });
+  const avatar = useMutation({
+    mutationFn: ({ userId, avatarDataUrl }: { userId: number; avatarDataUrl: string | null }) => api<User>(`/users/${userId}/avatar`, { method: "PUT", body: JSON.stringify({ avatar_data_url: avatarDataUrl }) }),
+    onSuccess: () => {
+      client.invalidateQueries({ queryKey: ["users"] });
+      client.invalidateQueries({ queryKey: ["dashboard"] });
+      setMessage("Profile image saved.");
+    }
+  });
   function submit(event: FormEvent) { event.preventDefault(); create.mutate(); }
-  return <section className="grid gap-6"><Card><form className="grid gap-3 md:grid-cols-5" onSubmit={submit}><label className="grid gap-1 text-xs font-semibold">Name<Input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} required /></label><label className="grid gap-1 text-xs font-semibold">Email<Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required /></label><label className="grid gap-1 text-xs font-semibold">Password<Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required /></label><label className="grid gap-1 text-xs font-semibold">Role<select className="h-10 rounded-md border border-border bg-white px-3 dark:bg-muted" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}><option value="customer_care">Customer Care</option><option value="admin">Admin</option></select></label><div className="self-end"><Button>Create User</Button></div></form>{create.error && <p className="mt-3 text-sm text-red-600">{create.error.message}</p>}</Card><Card><table className="w-full text-left text-sm"><thead><tr><th className="p-2">Name</th><th>Email</th><th>Role</th><th>Status</th></tr></thead><tbody>{data.map((user) => <tr key={user.id} className="border-t border-border"><td className="p-2">{user.full_name}</td><td>{user.email}</td><td>{user.role}</td><td>{user.is_active ? "Active" : "Disabled"}</td></tr>)}</tbody></table></Card></section>;
+  async function selectAvatar(userId: number, file?: File) {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setMessage("Please select an image file.");
+      return;
+    }
+    if (file.size > 700_000) {
+      setMessage("Image is too large. Use an image under 700 KB.");
+      return;
+    }
+    avatar.mutate({ userId, avatarDataUrl: await readImage(file) });
+  }
+  return <section className="grid gap-6"><Card><form className="grid gap-3 md:grid-cols-5" onSubmit={submit}><label className="grid gap-1 text-xs font-semibold">Name<Input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} required /></label><label className="grid gap-1 text-xs font-semibold">Email<Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required /></label><label className="grid gap-1 text-xs font-semibold">Password<Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required /></label><label className="grid gap-1 text-xs font-semibold">Role<select className="h-10 rounded-md border border-border bg-white px-3 dark:bg-muted" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}><option value="customer_care">Customer Care</option><option value="admin">Admin</option></select></label><div className="self-end"><Button>Create User</Button></div></form>{create.error && <p className="mt-3 text-sm text-red-600">{create.error.message}</p>}{message && <p className="mt-3 text-sm text-slate-500">{message}</p>}</Card><Card><table className="w-full text-left text-sm"><thead><tr><th className="p-2">Profile</th><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Image</th></tr></thead><tbody>{data.map((user) => <tr key={user.id} className="border-t border-border"><td className="p-2"><div className="grid h-11 w-11 place-items-center overflow-hidden rounded-lg bg-primary text-xs font-bold text-white">{user.avatar_data_url ? <img className="h-full w-full object-cover" src={user.avatar_data_url} alt={user.full_name} /> : user.full_name.slice(0, 2).toUpperCase()}</div></td><td>{user.full_name}</td><td>{user.email}</td><td>{user.role}</td><td>{user.is_active ? "Active" : "Disabled"}</td><td><input className="max-w-48 text-xs" type="file" accept="image/*" onChange={(event) => selectAvatar(user.id, event.target.files?.[0])} /></td></tr>)}</tbody></table></Card></section>;
 }
 
 export function HistoryPage() {

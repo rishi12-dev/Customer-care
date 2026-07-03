@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from app.api.dependencies import require_admin
+from app.api.dependencies import current_user, require_admin
 from app.config.database import get_db
 from app.models.entities import AuditAction, User
-from app.schemas.dto import UserCreate, UserRead, UserUpdate
+from app.schemas.dto import AvatarUpdate, UserCreate, UserRead, UserUpdate
 from app.services.audit_service import audit
 from app.utils.security import hash_password
 
@@ -27,6 +27,30 @@ def create_user(payload: UserCreate, admin: User = Depends(require_admin), db: S
     db.commit()
     db.refresh(user)
     return user
+
+
+def _update_avatar(db: Session, actor: User, user: User, payload: AvatarUpdate) -> User:
+    value = payload.avatar_data_url
+    if value and not value.startswith("data:image/"):
+        raise HTTPException(status_code=400, detail="Upload a valid image file")
+    user.avatar_data_url = value
+    audit(db, actor, AuditAction.user_change, None, {"avatar_user_id": user.id})
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@router.put("/me/avatar", response_model=UserRead)
+def update_my_avatar(payload: AvatarUpdate, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    return _update_avatar(db, user, user, payload)
+
+
+@router.put("/{user_id}/avatar", response_model=UserRead)
+def update_user_avatar(user_id: int, payload: AvatarUpdate, admin: User = Depends(require_admin), db: Session = Depends(get_db)):
+    user = db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return _update_avatar(db, admin, user, payload)
 
 
 @router.put("/{user_id}", response_model=UserRead)

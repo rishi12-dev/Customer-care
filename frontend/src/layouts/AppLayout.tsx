@@ -14,6 +14,12 @@ const adminLinks = [
   { to: "/settings", label: "Settings", icon: Settings }
 ];
 
+function Avatar({ name, src, className = "h-10 w-10" }: { name?: string; src?: string | null; className?: string }) {
+  const initials = (name || "C").split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
+  if (src) return <img className={cn(className, "rounded-lg object-cover")} src={src} alt={name || "Profile"} />;
+  return <div className={cn(className, "grid place-items-center rounded-lg bg-primary text-sm font-black text-white")}>{initials}</div>;
+}
+
 export function AppLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -29,7 +35,7 @@ export function AppLayout() {
     <div className="min-h-screen lg:flex">
       <aside className="border-r border-border bg-white/85 p-4 backdrop-blur dark:bg-black/20 lg:fixed lg:inset-y-0 lg:w-72">
         <div className="mb-8 flex items-center gap-3">
-          <div className="grid h-10 w-10 place-items-center rounded-lg bg-primary text-lg font-black text-white">C</div>
+          <Avatar name={user?.full_name} src={user?.avatar_data_url} />
           <div>
             <div className="text-lg font-bold">CourierOps</div>
             <div className="text-xs text-slate-500">{user?.full_name}</div>
@@ -55,6 +61,7 @@ export function AppLayout() {
           </div>
         </header>
         <main className="p-5 lg:p-8"><Outlet /></main>
+        <footer className="px-5 pb-6 text-center text-xs font-semibold tracking-wide text-slate-500 lg:px-8">MADE BY RISHI ❤️</footer>
       </div>
     </div>
   );

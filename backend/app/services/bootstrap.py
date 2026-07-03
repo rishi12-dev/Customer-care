@@ -1,3 +1,4 @@
+from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session
 from app.config.database import Base, engine
 from app.config.settings import get_settings
@@ -7,6 +8,10 @@ from app.utils.security import hash_password
 
 def create_schema() -> None:
     Base.metadata.create_all(bind=engine)
+    columns = {column["name"] for column in inspect(engine).get_columns("users")}
+    if "avatar_data_url" not in columns:
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TABLE users ADD COLUMN avatar_data_url TEXT"))
 
 
 def seed_initial_data(db: Session) -> None:

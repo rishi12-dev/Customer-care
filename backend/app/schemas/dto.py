@@ -33,12 +33,17 @@ class UserUpdate(BaseModel):
     is_active: bool | None = None
 
 
+class AvatarUpdate(BaseModel):
+    avatar_data_url: str | None = Field(default=None, max_length=1_000_000)
+
+
 class UserRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
     email: EmailStr
     full_name: str
+    avatar_data_url: str | None = None
     role: UserRole
     is_active: bool
     created_at: datetime
