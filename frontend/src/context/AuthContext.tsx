@@ -40,7 +40,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
-    loadTokens();
+    if (!loadTokens()) {
+      setLoading(false);
+      return;
+    }
     reloadProfile().catch(() => setTokens(null)).finally(() => setLoading(false));
   }, []);
 
