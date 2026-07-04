@@ -110,5 +110,6 @@ function isDelhivery(order: Order) {
 }
 
 function buildDelhiveryTrackingUrl(docketNumber: string) {
-  return `https://www.delhivery.com/track/package/${encodeURIComponent(docketNumber)}`;
+  void docketNumber;
+  return "https://one.delhivery.com/orders/forward/all";
 }
