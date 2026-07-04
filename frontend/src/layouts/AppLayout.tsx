@@ -1,11 +1,15 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { ArchiveRestore, BarChart3, History, LogOut, Moon, Search, Settings, Upload, Users, X } from "lucide-react";
+import { ArchiveRestore, BarChart3, History, LogOut, MapPin, Moon, Search, Settings, Upload, Users, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "../components/ui/Button";
 import { useAuth } from "../context/AuthContext";
 import { cn } from "../utils/cn";
 
-const customerLinks = [{ to: "/search", label: "Search", icon: Search }, { to: "/dashboard", label: "Dashboard", icon: BarChart3 }];
+const customerLinks = [
+  { to: "/search", label: "Search", icon: Search },
+  { to: "/dashboard", label: "Dashboard", icon: BarChart3 },
+  { to: "/pincode", label: "Pincode", icon: MapPin }
+];
 const adminLinks = [
   { to: "/upload", label: "Upload", icon: Upload },
   { to: "/users", label: "Users", icon: Users },
