@@ -24,6 +24,19 @@ export interface Order {
   delivery_date: string | null;
 }
 
+export interface PincodeService {
+  id: number;
+  pincode: string;
+  state: string | null;
+  city: string | null;
+  zone: string | null;
+  active: boolean;
+  warehouse: string | null;
+  courier: string;
+  service_date: string | null;
+  source_file: string | null;
+}
+
 export interface Dashboard {
   total_orders: number;
   delivered: number;

@@ -114,6 +114,27 @@ class TrackingSyncResponse(BaseModel):
     duration_ms: int
 
 
+class PincodeServiceRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    pincode: str
+    state: str | None
+    city: str | None
+    zone: str | None
+    active: bool
+    warehouse: str | None
+    courier: str
+    service_date: date | None
+    source_file: str | None
+
+
+class PincodeSearchResponse(BaseModel):
+    query: str
+    pincode: str
+    results: list[PincodeServiceRead]
+
+
 class SettingUpdate(BaseModel):
     company_name: str = Field(min_length=2, max_length=120)
     theme: str = Field(pattern="^(light|dark|system)$")

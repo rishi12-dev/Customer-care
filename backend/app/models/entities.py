@@ -63,6 +63,26 @@ class Order(Base):
     )
 
 
+class PincodeService(Base):
+    __tablename__ = "pincode_services"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    pincode: Mapped[str] = mapped_column(String(12), nullable=False, index=True)
+    state: Mapped[str | None] = mapped_column(String(120), index=True)
+    city: Mapped[str | None] = mapped_column(String(160), index=True)
+    zone: Mapped[str | None] = mapped_column(String(160))
+    active: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    warehouse: Mapped[str | None] = mapped_column(String(160), index=True)
+    courier: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    service_date: Mapped[date | None] = mapped_column(Date)
+    source_file: Mapped[str | None] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        Index("ix_pincode_services_lookup", "pincode", "courier", "active"),
+    )
+
+
 class UploadHistory(Base):
     __tablename__ = "upload_history"
 
