@@ -1,5 +1,5 @@
 import { FormEvent, useState } from "react";
-import { Copy, ExternalLink, Phone, Printer, Search, X } from "lucide-react";
+import { Copy, ExternalLink, Phone, Printer, Search } from "lucide-react";
 import { api } from "../api/client";
 import { StatusBadge } from "../components/StatusBadge";
 import { Button } from "../components/ui/Button";
@@ -13,9 +13,6 @@ export function SearchPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
-  const [trackingOrder, setTrackingOrder] = useState<Order | null>(null);
-
-  const trackingUrl = trackingOrder ? buildDelhiveryTrackingUrl(trackingOrder.docket_number) : "";
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -62,7 +59,7 @@ export function SearchPage() {
               <p className="mt-2 min-h-12 text-sm text-slate-600 dark:text-slate-300">{order.remark ?? "No remark recorded"}</p>
               <div className="mt-4 flex flex-wrap gap-2 no-print">
                 {isDelhivery(order) && (
-                  <Button className="bg-emerald-600" type="button" onClick={() => setTrackingOrder(order)}>
+                  <Button className="bg-emerald-600" type="button" onClick={() => window.open(buildDelhiveryTrackingUrl(), "_blank", "noopener,noreferrer")}>
                     <ExternalLink size={16} /> Track
                   </Button>
                 )}
@@ -80,27 +77,6 @@ export function SearchPage() {
           </Card>
         ))}
       </div>
-      {trackingOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-3 no-print" role="dialog" aria-modal="true" aria-label="Delhivery tracking">
-          <div className="flex h-[88vh] w-full max-w-6xl flex-col overflow-hidden rounded-lg border border-border bg-card shadow-2xl">
-            <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold">Delhivery tracking</p>
-                <p className="truncate text-xs text-slate-500">{trackingOrder.docket_number}</p>
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <Button type="button" className="h-9 bg-slate-900 px-3 dark:bg-white dark:text-slate-950" onClick={() => window.open(trackingUrl, "_blank", "noopener,noreferrer")}>
-                  <ExternalLink size={16} /> Open
-                </Button>
-                <Button type="button" className="h-9 w-9 bg-transparent px-0 text-slate-700 shadow-none hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800" onClick={() => setTrackingOrder(null)} aria-label="Close tracking">
-                  <X size={18} />
-                </Button>
-              </div>
-            </div>
-            <iframe className="h-full w-full bg-white" title={`Delhivery tracking ${trackingOrder.docket_number}`} src={trackingUrl} />
-          </div>
-        </div>
-      )}
     </section>
   );
 }
@@ -109,7 +85,6 @@ function isDelhivery(order: Order) {
   return order.shipment.toLowerCase().includes("delhivery") && Boolean(order.docket_number);
 }
 
-function buildDelhiveryTrackingUrl(docketNumber: string) {
-  void docketNumber;
+function buildDelhiveryTrackingUrl() {
   return "https://one.delhivery.com/orders/forward/all";
 }
