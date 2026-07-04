@@ -107,6 +107,13 @@ class DashboardResponse(BaseModel):
     daily_upload_trend: list[dict]
 
 
+class TrackingSyncResponse(BaseModel):
+    checked: int
+    updated: int
+    errors: list[str]
+    duration_ms: int
+
+
 class SettingUpdate(BaseModel):
     company_name: str = Field(min_length=2, max_length=120)
     theme: str = Field(pattern="^(light|dark|system)$")

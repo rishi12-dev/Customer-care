@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 30
     refresh_token_expire_days: int = 7
     cors_origins: list[str] = ["http://localhost:5173"]
+    delhivery_api_token: str | None = None
+    delhivery_tracking_url: str = "https://track.delhivery.com/api/v1/packages/json/"
     initial_admin_email: str = "admin@courierops.local"
     initial_admin_password: str = "ChangeMe@12345"
 

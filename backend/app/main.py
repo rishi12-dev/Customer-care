@@ -7,7 +7,7 @@ from slowapi.util import get_remote_address
 from starlette.responses import JSONResponse
 from app.config.database import SessionLocal
 from app.config.settings import get_settings
-from app.controllers import auth_controller, portal_controller, upload_controller, user_controller
+from app.controllers import auth_controller, portal_controller, tracking_controller, upload_controller, user_controller
 from app.middleware.csrf import CSRFMiddleware
 from app.middleware.security import SecurityHeadersMiddleware
 from app.services.excel_service import delete_automatic_backups
@@ -64,5 +64,6 @@ def health():
 
 app.include_router(auth_controller.router)
 app.include_router(upload_controller.router)
+app.include_router(tracking_controller.router)
 app.include_router(portal_controller.router)
 app.include_router(user_controller.router)
