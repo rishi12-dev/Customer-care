@@ -12,10 +12,10 @@
     "module": "ESNext",
     "moduleResolution": "Node",
     "resolveJsonModule": true,
+    "types": ["vite/client", "vitest"],
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx"
   },
-  "include": ["src"],
-  "references": []
+  "include": ["src"]
 }
