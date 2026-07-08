@@ -32,6 +32,164 @@ button, input, select {
   font: inherit;
 }
 
+.truck-loader {
+  display: grid;
+  gap: 0.75rem;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.5rem;
+  background:
+    linear-gradient(180deg, rgba(219, 238, 246, 0.92), rgba(234, 247, 252, 0.96)),
+    url("/loading-screen.jpeg") center / cover;
+  padding: 1.25rem;
+  min-height: 12rem;
+}
+
+.truck-loader__sky {
+  position: relative;
+  width: min(100%, 34rem);
+  height: 8rem;
+  overflow: hidden;
+}
+
+.truck-loader__road {
+  position: absolute;
+  right: 1rem;
+  bottom: 1.45rem;
+  left: 1rem;
+  height: 0.25rem;
+  border-radius: 999px;
+  background: #25313a;
+}
+
+.truck-loader__road::before,
+.truck-loader__road::after {
+  position: absolute;
+  bottom: 0;
+  width: 4rem;
+  height: 0.25rem;
+  border-radius: 999px;
+  background: #25313a;
+  content: "";
+  animation: road-dash 1.1s linear infinite;
+}
+
+.truck-loader__road::before {
+  left: 15%;
+}
+
+.truck-loader__road::after {
+  left: 58%;
+  animation-delay: 0.45s;
+}
+
+.truck-loader__vehicle {
+  position: absolute;
+  bottom: 1.6rem;
+  left: -12rem;
+  width: 12.5rem;
+  height: 4.6rem;
+  animation: truck-drive 2.4s ease-in-out infinite;
+}
+
+.truck-loader__box {
+  position: absolute;
+  right: 4.2rem;
+  bottom: 0.6rem;
+  width: 6.9rem;
+  height: 3.55rem;
+  border: 0.25rem solid #24313a;
+  border-radius: 0.22rem;
+  background: #f7f7f7;
+  box-shadow: inset 0 0 0 0.12rem rgba(255, 255, 255, 0.7);
+}
+
+.truck-loader__cab {
+  position: absolute;
+  right: 0.8rem;
+  bottom: 0.6rem;
+  width: 3.6rem;
+  height: 3.2rem;
+  border: 0.25rem solid #24313a;
+  border-radius: 0.35rem 0.9rem 0.35rem 0.25rem;
+  background: #ff3b45;
+}
+
+.truck-loader__window {
+  position: absolute;
+  top: 0.45rem;
+  left: 0.55rem;
+  width: 1.9rem;
+  height: 1rem;
+  border: 0.18rem solid #24313a;
+  border-radius: 0.15rem;
+  background: #d7eef5;
+}
+
+.truck-loader__light {
+  position: absolute;
+  right: 0.12rem;
+  bottom: 1.25rem;
+  width: 0.25rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: #ffd85a;
+}
+
+.truck-loader__wheel {
+  position: absolute;
+  bottom: 0;
+  width: 1.45rem;
+  height: 1.45rem;
+  border: 0.34rem solid #24313a;
+  border-radius: 999px;
+  background: #f2f8fb;
+  animation: wheel-spin 0.55s linear infinite;
+}
+
+.truck-loader__wheel--back {
+  right: 8.8rem;
+}
+
+.truck-loader__wheel--front {
+  right: 1rem;
+}
+
+.truck-loader__label {
+  color: #24313a;
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+@keyframes truck-drive {
+  0% {
+    transform: translateX(0) translateY(0);
+  }
+  45% {
+    transform: translateX(21rem) translateY(-0.08rem);
+  }
+  55% {
+    transform: translateX(21.5rem) translateY(0.03rem);
+  }
+  100% {
+    transform: translateX(43rem) translateY(0);
+  }
+}
+
+@keyframes wheel-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes road-dash {
+  to {
+    transform: translateX(-10rem);
+    opacity: 0.2;
+  }
+}
+
 @media print {
   aside, header, nav, .no-print {
     display: none !important;

@@ -2,6 +2,7 @@ import { FormEvent, useState } from "react";
 import { Copy, ExternalLink, Phone, Printer, Search } from "lucide-react";
 import { api } from "../api/client";
 import { StatusBadge } from "../components/StatusBadge";
+import { TruckLoader } from "../components/TruckLoader";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { Input } from "../components/ui/Input";
@@ -37,8 +38,9 @@ export function SearchPage() {
         <Input id="universal-search" value={query} onChange={(event) => setQuery(event.target.value)} minLength={2} required />
         <Button disabled={busy}><Search size={18} /> {busy ? "Searching" : "Search"}</Button>
       </form>
+      {busy && <TruckLoader label="Searching shipment..." />}
       {message && <p className="text-sm text-slate-500">{message}</p>}
-      <div className="grid gap-4">
+      <div className={busy ? "hidden" : "grid gap-4"}>
         {orders.map((order) => (
           <Card key={order.id} className="grid select-none gap-4 xl:grid-cols-3">
             <div>

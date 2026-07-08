@@ -1,6 +1,7 @@
 import { FormEvent, useState } from "react";
 import { Search, UploadCloud } from "lucide-react";
 import { api } from "../api/client";
+import { TruckLoader } from "../components/TruckLoader";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { Input } from "../components/ui/Input";
@@ -75,8 +76,9 @@ export function PincodePage() {
         </form>
         {message && <p className="mt-4 text-sm text-slate-600 dark:text-slate-300">{message}</p>}
       </Card>
+      {busy && <TruckLoader label="Checking pincode service..." />}
 
-      {results.length > 0 && (
+      {!busy && results.length > 0 && (
         <Card className="overflow-hidden p-0">
           <div className="overflow-auto">
             <table className="w-full min-w-[920px] text-left text-sm">
