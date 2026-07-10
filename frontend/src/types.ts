@@ -51,4 +51,11 @@ export interface Dashboard {
   courier_wise: Array<{ name: string; value: number }>;
   status_wise: Array<{ name: string; value: number }>;
   daily_upload_trend: Array<{ date: string; records: number }>;
+  pincode_total: number;
+  pincode_unique: number;
+  pincode_active: number;
+  pincode_inactive: number;
+  pincode_courier_wise: Array<{ name: string; value: number }>;
+  pincode_state_wise: Array<{ name: string; value: number }>;
+  pincode_warehouse_wise: Array<{ name: string; value: number }>;
 }

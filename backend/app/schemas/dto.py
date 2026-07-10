@@ -105,6 +105,13 @@ class DashboardResponse(BaseModel):
     courier_wise: list[dict]
     status_wise: list[dict]
     daily_upload_trend: list[dict]
+    pincode_total: int
+    pincode_unique: int
+    pincode_active: int
+    pincode_inactive: int
+    pincode_courier_wise: list[dict]
+    pincode_state_wise: list[dict]
+    pincode_warehouse_wise: list[dict]
 
 
 class TrackingSyncResponse(BaseModel):

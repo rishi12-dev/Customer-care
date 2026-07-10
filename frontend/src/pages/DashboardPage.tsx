@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Activity, CheckCircle2, Clock, Database, Package, RefreshCw, Truck } from "lucide-react";
+import { Activity, Building2, CheckCircle2, Clock, Database, MapPin, Package, RefreshCw, Truck } from "lucide-react";
 import { api } from "../api/client";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
@@ -52,6 +52,17 @@ export function DashboardPage() {
         <Card><h2 className="mb-4 font-semibold">Courier Wise</h2><Bars data={data.courier_wise} /></Card>
         <Card><h2 className="mb-4 font-semibold">Status Wise</h2><Bars data={data.status_wise} /></Card>
         <Card><h2 className="mb-4 flex items-center gap-2 font-semibold"><Database size={18} /> Database Status</h2><p className="text-sm text-slate-500">{data.database_status}</p><p className="mt-4 text-sm">Latest upload: {data.latest_upload ? `${data.latest_upload.records} records on ${new Date(data.latest_upload.date).toLocaleString()}` : "No upload yet"}</p></Card>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <Metric label="Pincode Rows" value={data.pincode_total} icon={MapPin} />
+        <Metric label="Unique Pincodes" value={data.pincode_unique} icon={MapPin} />
+        <Metric label="Active Services" value={data.pincode_active} icon={CheckCircle2} />
+        <Metric label="Inactive Services" value={data.pincode_inactive} icon={Clock} />
+      </div>
+      <div className="grid gap-6 xl:grid-cols-3">
+        <Card><h2 className="mb-4 flex items-center gap-2 font-semibold"><Truck size={18} /> Pincode Courier Wise</h2><Bars data={data.pincode_courier_wise} /></Card>
+        <Card><h2 className="mb-4 flex items-center gap-2 font-semibold"><MapPin size={18} /> Pincode State Wise</h2><Bars data={data.pincode_state_wise} /></Card>
+        <Card><h2 className="mb-4 flex items-center gap-2 font-semibold"><Building2 size={18} /> Warehouse Wise</h2><Bars data={data.pincode_warehouse_wise} /></Card>
       </div>
     </section>
   );
