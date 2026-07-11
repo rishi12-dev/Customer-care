@@ -1,6 +1,7 @@
 import { FormEvent, useState } from "react";
 import { Copy, ExternalLink, MapPin, Phone, Printer, Search } from "lucide-react";
 import { api } from "../api/client";
+import { GlobeFlightLoader } from "../components/GlobeFlightLoader";
 import { StatusBadge } from "../components/StatusBadge";
 import { TruckLoader } from "../components/TruckLoader";
 import { Button } from "../components/ui/Button";
@@ -72,7 +73,7 @@ export function SearchPage() {
         </Card>
       </div>
       {busy && <TruckLoader label="Searching shipment..." />}
-      {pincodeBusy && <TruckLoader label="Checking pincode service..." />}
+      {pincodeBusy && <GlobeFlightLoader label="Checking pincode service..." />}
       {!pincodeBusy && pincodeResults.length > 0 && (
         <Card className="overflow-hidden p-0">
           <div className="overflow-auto">

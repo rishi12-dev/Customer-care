@@ -162,6 +162,89 @@ button, input, select {
   font-weight: 800;
 }
 
+.globe-loader {
+  display: grid;
+  min-height: 12rem;
+  place-items: center;
+  gap: 0.85rem;
+  overflow: hidden;
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.5rem;
+  background:
+    radial-gradient(circle at 50% 38%, rgba(255, 255, 255, 0.95), transparent 18rem),
+    linear-gradient(135deg, #e6f7ff 0%, #f6fbff 46%, #eaf7ef 100%);
+  padding: 1.5rem;
+}
+
+.globe-loader__stage {
+  position: relative;
+  width: 12rem;
+  height: 9.5rem;
+}
+
+.globe-loader__earth {
+  position: absolute;
+  top: 1.15rem;
+  left: 50%;
+  width: 7.25rem;
+  height: 7.25rem;
+  overflow: hidden;
+  border: 0.22rem solid #173f5f;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.85), transparent 1.5rem),
+    linear-gradient(145deg, #26b7e8, #0f72bd 64%, #0a4f91);
+  box-shadow: 0 1.1rem 2rem rgba(15, 72, 105, 0.22), inset -1rem -0.8rem 1.5rem rgba(0, 26, 61, 0.28);
+  transform: translateX(-50%);
+}
+
+.globe-loader__continents {
+  position: absolute;
+  inset: 0;
+  width: 14.5rem;
+  background:
+    radial-gradient(ellipse at 18% 32%, #35a853 0 0.8rem, transparent 0.85rem),
+    radial-gradient(ellipse at 31% 64%, #35a853 0 1rem, transparent 1.05rem),
+    radial-gradient(ellipse at 50% 38%, #48b96a 0 1.35rem, transparent 1.42rem),
+    radial-gradient(ellipse at 72% 58%, #35a853 0 1.15rem, transparent 1.22rem),
+    radial-gradient(ellipse at 88% 28%, #48b96a 0 0.9rem, transparent 0.96rem);
+  animation: earth-spin 2.8s linear infinite;
+}
+
+.globe-loader__shine {
+  position: absolute;
+  inset: 0.4rem auto auto 1.1rem;
+  width: 2.1rem;
+  height: 3rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.32);
+  filter: blur(0.08rem);
+  transform: rotate(24deg);
+}
+
+.globe-loader__orbit {
+  position: absolute;
+  inset: 0;
+  border: 0.08rem dashed rgba(23, 63, 95, 0.28);
+  border-radius: 50%;
+  animation: flight-orbit 2.2s linear infinite;
+}
+
+.globe-loader__plane {
+  position: absolute;
+  top: 0.15rem;
+  left: 50%;
+  color: #ef3d4a;
+  filter: drop-shadow(0 0.35rem 0.35rem rgba(23, 63, 95, 0.22));
+  transform: translateX(-50%) rotate(42deg);
+}
+
+.globe-loader__label {
+  color: #173f5f;
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
 @keyframes truck-drive {
   0% {
     transform: translateX(0) translateY(0);
@@ -174,6 +257,18 @@ button, input, select {
   }
   100% {
     transform: translateX(43rem) translateY(0);
+  }
+}
+
+@keyframes earth-spin {
+  to {
+    transform: translateX(-7.25rem);
+  }
+}
+
+@keyframes flight-orbit {
+  to {
+    transform: rotate(360deg);
   }
 }
 
