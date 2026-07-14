@@ -1,7 +1,7 @@
 import { FormEvent, useState } from "react";
 import { Search, UploadCloud } from "lucide-react";
 import { api } from "../api/client";
-import { GlobeFlightLoader } from "../components/GlobeFlightLoader";
+import { TruckLoader } from "../components/TruckLoader";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { Input } from "../components/ui/Input";
@@ -76,7 +76,7 @@ export function PincodePage() {
         </form>
         {message && <p className="mt-4 text-sm text-slate-600 dark:text-slate-300">{message}</p>}
       </Card>
-      {busy && <GlobeFlightLoader label="Checking pincode service..." />}
+      {busy && <TruckLoader label="Checking pincode service..." brand="indiashoppe" />}
 
       {!busy && results.length > 0 && (
         <Card className="overflow-hidden p-0">
