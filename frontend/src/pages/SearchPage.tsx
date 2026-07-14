@@ -72,7 +72,7 @@ export function SearchPage() {
           {pincodeMessage && <p className="mt-4 text-sm text-slate-500">{pincodeMessage}</p>}
         </Card>
       </div>
-      {busy && <TruckLoader label="Searching shipment..." />}
+      {busy && <TruckLoader label="Searching shipment..." brand={inferCourierBrand(query)} />}
       {pincodeBusy && <GlobeFlightLoader label="Checking pincode service..." />}
       {!pincodeBusy && pincodeResults.length > 0 && (
         <Card className="overflow-hidden p-0">
@@ -153,4 +153,12 @@ function isDelhivery(order: Order) {
 
 function buildDelhiveryTrackingUrl() {
   return "https://one.delhivery.com/orders/forward/all";
+}
+
+function inferCourierBrand(value: string): "delhivery" | "indiashoppe" | "generic" {
+  const digits = value.replace(/\D/g, "");
+  if (digits.startsWith("9")) {
+    return "delhivery";
+  }
+  return "indiashoppe";
 }
