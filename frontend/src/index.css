@@ -219,156 +219,162 @@ button, input, select {
 .globe-loader {
   position: relative;
   display: grid;
-  min-height: 15rem;
+  min-height: 27rem;
   place-items: center;
-  gap: 0.95rem;
   overflow: hidden;
-  border: 1px solid rgba(100, 149, 190, 0.34);
+  border: 1px solid rgba(38, 115, 214, 0.34);
   border-radius: 0.5rem;
   background:
-    radial-gradient(circle at 48% 30%, rgba(89, 182, 255, 0.28), transparent 11rem),
-    radial-gradient(circle at 12% 18%, rgba(255, 255, 255, 0.22), transparent 0.18rem),
-    radial-gradient(circle at 82% 24%, rgba(255, 255, 255, 0.18), transparent 0.16rem),
-    linear-gradient(135deg, #071322 0%, #0d2b4b 48%, #113c5a 100%);
-  padding: 1.5rem;
-  box-shadow: inset 0 0 4rem rgba(255, 255, 255, 0.04);
+    linear-gradient(180deg, rgba(2, 8, 28, 0.08), rgba(2, 8, 28, 0.82)),
+    url("/pincode-loading.jpeg") center / cover;
+  padding: 2rem;
+  color: #eef7ff;
+  box-shadow: inset 0 0 5rem rgba(12, 87, 205, 0.16);
 }
 
-.globe-loader__stars {
+.globe-loader__overlay {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle at 18% 34%, rgba(255, 255, 255, 0.85) 0 0.08rem, transparent 0.09rem),
-    radial-gradient(circle at 72% 20%, rgba(255, 255, 255, 0.7) 0 0.07rem, transparent 0.08rem),
-    radial-gradient(circle at 84% 68%, rgba(255, 255, 255, 0.55) 0 0.08rem, transparent 0.09rem),
-    radial-gradient(circle at 31% 76%, rgba(255, 255, 255, 0.45) 0 0.07rem, transparent 0.08rem);
-  opacity: 0.9;
+    radial-gradient(circle at 50% 22%, rgba(51, 148, 255, 0.14), transparent 18rem),
+    linear-gradient(90deg, rgba(2, 7, 24, 0.18), transparent 22%, transparent 78%, rgba(2, 7, 24, 0.2));
 }
 
-.globe-loader__stage {
+.globe-loader__content {
   position: relative;
   z-index: 1;
-  width: 14.5rem;
-  height: 11.5rem;
-  perspective: 38rem;
+  display: grid;
+  width: min(100%, 46rem);
+  place-items: center;
+  gap: 0.7rem;
+  text-align: center;
 }
 
-.globe-loader__aura {
-  position: absolute;
-  top: 1.05rem;
-  left: 50%;
-  width: 9.8rem;
-  height: 9.8rem;
-  border-radius: 999px;
-  background: radial-gradient(circle, rgba(81, 190, 255, 0.42), rgba(81, 190, 255, 0.1) 54%, transparent 72%);
-  filter: blur(0.18rem);
-  transform: translateX(-50%);
-  animation: globe-aura 2.6s ease-in-out infinite alternate;
+.globe-loader__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(3, 13, 39, 0.58);
+  box-shadow: 0 0.8rem 2.2rem rgba(0, 10, 30, 0.28);
+  backdrop-filter: blur(0.35rem);
 }
 
-.globe-loader__earth {
-  position: absolute;
-  top: 1.35rem;
-  left: 50%;
-  width: 8.7rem;
-  height: 8.7rem;
-  overflow: hidden;
-  border: 0.08rem solid rgba(184, 235, 255, 0.45);
-  border-radius: 999px;
-  background:
-    radial-gradient(circle at 30% 23%, rgba(255, 255, 255, 0.78), transparent 1.15rem),
-    radial-gradient(circle at 72% 78%, rgba(0, 26, 66, 0.62), transparent 3.2rem),
-    linear-gradient(145deg, #42c7ff 0%, #0a78c7 52%, #06396f 100%);
-  box-shadow:
-    0 1.4rem 2.6rem rgba(0, 7, 18, 0.42),
-    0 0 2.2rem rgba(63, 181, 255, 0.34),
-    inset -1.35rem -1rem 1.9rem rgba(0, 18, 54, 0.45),
-    inset 0.6rem 0.5rem 1.1rem rgba(255, 255, 255, 0.24);
-  transform: translateX(-50%) rotateX(8deg);
-}
-
-.globe-loader__continents {
-  position: absolute;
-  inset: 0;
-  width: 17.4rem;
-  background:
-    radial-gradient(ellipse at 10% 31%, #2fa45c 0 0.64rem, transparent 0.7rem),
-    radial-gradient(ellipse at 20% 62%, #69bd5d 0 0.9rem, transparent 0.96rem),
-    radial-gradient(ellipse at 34% 42%, #2fa45c 0 1.3rem, transparent 1.38rem),
-    radial-gradient(ellipse at 48% 66%, #5dbb5f 0 0.86rem, transparent 0.94rem),
-    radial-gradient(ellipse at 63% 35%, #7fc45e 0 1.05rem, transparent 1.13rem),
-    radial-gradient(ellipse at 78% 61%, #2fa45c 0 1rem, transparent 1.08rem),
-    radial-gradient(ellipse at 91% 28%, #7fc45e 0 0.78rem, transparent 0.86rem);
-  filter: drop-shadow(0 0.06rem 0.08rem rgba(0, 29, 51, 0.24));
-  animation: earth-spin 4.2s linear infinite;
-}
-
-.globe-loader__clouds {
-  position: absolute;
-  inset: 0;
-  width: 17.4rem;
-  background:
-    radial-gradient(ellipse at 12% 23%, rgba(255, 255, 255, 0.5) 0 0.7rem, transparent 0.78rem),
-    radial-gradient(ellipse at 38% 72%, rgba(255, 255, 255, 0.32) 0 0.85rem, transparent 0.94rem),
-    radial-gradient(ellipse at 70% 46%, rgba(255, 255, 255, 0.4) 0 0.95rem, transparent 1.05rem);
-  filter: blur(0.08rem);
-  opacity: 0.7;
-  animation: earth-clouds 6s linear infinite;
-}
-
-.globe-loader__grid {
-  position: absolute;
-  inset: 0.15rem;
-  border-radius: inherit;
-  background:
-    linear-gradient(90deg, transparent 22%, rgba(207, 244, 255, 0.23) 23%, transparent 24%, transparent 48%, rgba(207, 244, 255, 0.2) 49%, transparent 50%, transparent 73%, rgba(207, 244, 255, 0.18) 74%, transparent 75%),
-    linear-gradient(0deg, transparent 28%, rgba(207, 244, 255, 0.2) 29%, transparent 30%, transparent 50%, rgba(207, 244, 255, 0.22) 51%, transparent 52%, transparent 70%, rgba(207, 244, 255, 0.17) 71%, transparent 72%);
-  mix-blend-mode: screen;
-  opacity: 0.55;
-}
-
-.globe-loader__shine {
-  position: absolute;
-  inset: 0.75rem auto auto 1.15rem;
-  width: 2.7rem;
-  height: 4rem;
-  border-radius: 999px;
-  background: linear-gradient(110deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.06));
-  filter: blur(0.04rem);
-  transform: rotate(22deg);
-}
-
-.globe-loader__orbit {
-  position: absolute;
-  inset: 0.15rem 0 0;
-  border: 0.12rem solid transparent;
-  border-top-color: rgba(255, 255, 255, 0.72);
-  border-right-color: rgba(80, 205, 255, 0.36);
-  border-bottom-color: rgba(255, 255, 255, 0.16);
+.globe-loader__brand-mark {
+  display: grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  place-items: center;
   border-radius: 50%;
-  box-shadow: 0 0 1.4rem rgba(82, 201, 255, 0.24);
-  transform: rotateX(60deg) rotateZ(-18deg);
-  animation: flight-orbit 2.75s linear infinite;
-}
-
-.globe-loader__plane {
-  position: absolute;
-  top: -0.8rem;
-  left: 50%;
   color: #ffffff;
-  fill: rgba(255, 255, 255, 0.94);
-  stroke-width: 2.3;
-  filter: drop-shadow(0 0.35rem 0.5rem rgba(0, 12, 25, 0.42)) drop-shadow(0 0 0.35rem rgba(97, 214, 255, 0.58));
-  transform: translateX(-50%) rotate(46deg);
+  font-size: 0.85rem;
+  font-weight: 900;
+  background: linear-gradient(135deg, #24b8f2, #ff4fa3);
+  box-shadow: 0 0 1.1rem rgba(42, 176, 255, 0.35);
 }
 
-.globe-loader__label {
-  position: relative;
-  z-index: 1;
-  color: #ecf9ff;
-  font-size: 1.15rem;
+.globe-loader__brand-name {
+  color: #36b8f2;
+  font-size: 1.28rem;
   font-weight: 800;
-  text-shadow: 0 0.35rem 1rem rgba(0, 10, 25, 0.4);
+  line-height: 1;
+}
+
+.globe-loader__brand-name span {
+  color: #ff4fa3;
+}
+
+.globe-loader__brand-subtitle {
+  margin-top: 0.22rem;
+  color: rgba(238, 247, 255, 0.74);
+  font-size: 0.68rem;
+  font-style: italic;
+  line-height: 1;
+}
+
+.globe-loader__eyebrow {
+  margin: 0.2rem 0 8.25rem;
+  color: rgba(238, 247, 255, 0.76);
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+}
+
+.globe-loader__title {
+  margin: 0;
+  color: #ffffff;
+  font-size: 1.45rem;
+  font-weight: 850;
+  text-shadow: 0 0.45rem 1.5rem rgba(0, 12, 35, 0.58);
+}
+
+.globe-loader__caption,
+.globe-loader__wait {
+  margin: 0;
+  color: rgba(230, 241, 255, 0.74);
+  font-size: 0.95rem;
+}
+
+.globe-loader__progress {
+  width: min(100%, 34rem);
+  height: 0.72rem;
+  overflow: hidden;
+  border: 1px solid rgba(74, 148, 255, 0.28);
+  border-radius: 999px;
+  background: rgba(8, 23, 57, 0.72);
+  box-shadow: inset 0 0 1rem rgba(12, 100, 255, 0.2);
+}
+
+.globe-loader__progress span {
+  display: block;
+  width: 72%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #1477ff, #23c7ff, #1477ff);
+  background-size: 200% 100%;
+  box-shadow: 0 0 1.1rem rgba(35, 199, 255, 0.72);
+  animation: pincode-progress 1.3s linear infinite;
+}
+
+.globe-loader__steps {
+  display: grid;
+  width: min(100%, 42rem);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.globe-loader__step {
+  display: grid;
+  min-width: 0;
+  place-items: center;
+  gap: 0.45rem;
+  color: rgba(226, 239, 255, 0.68);
+  font-size: 0.75rem;
+}
+
+.globe-loader__step svg {
+  width: 2.85rem;
+  height: 2.85rem;
+  border: 1px solid rgba(79, 145, 255, 0.26);
+  border-radius: 50%;
+  padding: 0.7rem;
+  background: rgba(9, 22, 54, 0.58);
+  filter: drop-shadow(0 0.55rem 0.9rem rgba(0, 11, 34, 0.35));
+}
+
+.globe-loader__step--done,
+.globe-loader__step--active {
+  color: #45c7ff;
+}
+
+.globe-loader__step--active svg {
+  color: #50ceff;
+  border-color: rgba(80, 206, 255, 0.8);
+  box-shadow: 0 0 1.1rem rgba(44, 154, 255, 0.72);
+  animation: pincode-step-pulse 1.4s ease-in-out infinite;
 }
 
 @keyframes truck-drive {
@@ -421,6 +427,60 @@ button, input, select {
   to {
     transform: translateX(-10rem);
     opacity: 0.2;
+  }
+}
+
+@keyframes pincode-progress {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes pincode-step-pulse {
+  50% {
+    transform: translateY(-0.08rem) scale(1.05);
+  }
+}
+
+@media (max-width: 640px) {
+  .globe-loader {
+    min-height: 24rem;
+    padding: 1.25rem;
+    background-position: center top;
+  }
+
+  .globe-loader__eyebrow {
+    margin-bottom: 6rem;
+    font-size: 0.72rem;
+    letter-spacing: 0.24em;
+  }
+
+  .globe-loader__brand-name {
+    font-size: 1rem;
+  }
+
+  .globe-loader__title {
+    font-size: 1.15rem;
+  }
+
+  .globe-loader__caption,
+  .globe-loader__wait {
+    font-size: 0.78rem;
+  }
+
+  .globe-loader__steps {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+
+  .globe-loader__step {
+    font-size: 0.68rem;
+  }
+
+  .globe-loader__step svg {
+    width: 2.25rem;
+    height: 2.25rem;
+    padding: 0.55rem;
   }
 }
 
