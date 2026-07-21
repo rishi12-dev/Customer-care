@@ -217,11 +217,9 @@ button, input, select {
 }
 
 .truck-loader__sticker {
-  position: absolute;
-  top: 0.65rem;
-  right: 0.85rem;
-  z-index: 2;
-  width: clamp(6.5rem, 18vw, 10rem);
+  position: relative;
+  z-index: 1;
+  width: clamp(7rem, 20vw, 11rem);
   aspect-ratio: 1;
   border: 0.24rem solid rgba(255, 255, 255, 0.95);
   border-radius: 0.75rem;
@@ -231,13 +229,15 @@ button, input, select {
 }
 
 .sticker-notice {
-  display: flex;
+  display: grid;
   align-items: center;
-  gap: 1rem;
+  justify-items: center;
+  gap: 0.9rem;
   border: 1px solid hsl(var(--border));
   border-radius: 0.5rem;
   background: hsl(var(--muted));
-  padding: 1rem;
+  padding: 1.25rem;
+  text-align: center;
 }
 
 .sticker-notice--wrong {

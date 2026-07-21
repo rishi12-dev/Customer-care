@@ -24,10 +24,10 @@ export function SearchPage() {
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (query.trim().length < 2) {
+    if (!isValidShipmentSearch(query)) {
       setOrders([]);
       setOrderNotice("wrong");
-      setMessage("Order, docket or phone number sahi se daalo.");
+      setMessage("Order, docket ya mobile number ka length sahi nahi hai.");
       return;
     }
     setBusy(true);
@@ -183,4 +183,10 @@ function inferCourierBrand(value: string): "delhivery" | "indiashoppe" | "generi
     return "delhivery";
   }
   return "indiashoppe";
+}
+
+function isValidShipmentSearch(value: string) {
+  const normalized = value.replace(/[^a-zA-Z0-9]/g, "");
+  const validLengths = new Set([5, 7, 8, 9, 10, 11, 12]);
+  return validLengths.has(normalized.length);
 }
