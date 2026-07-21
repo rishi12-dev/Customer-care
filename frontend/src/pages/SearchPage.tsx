@@ -1,6 +1,7 @@
 import { FormEvent, useState } from "react";
 import { Copy, ExternalLink, MapPin, Phone, Printer, Search } from "lucide-react";
 import { api } from "../api/client";
+import { StickerNotice } from "../components/StickerNotice";
 import { StatusBadge } from "../components/StatusBadge";
 import { TruckLoader } from "../components/TruckLoader";
 import { Button } from "../components/ui/Button";
@@ -13,23 +14,34 @@ export function SearchPage() {
   const [query, setQuery] = useState("");
   const [orders, setOrders] = useState<Order[]>([]);
   const [message, setMessage] = useState("");
+  const [orderNotice, setOrderNotice] = useState<"wrong" | "empty" | null>(null);
   const [busy, setBusy] = useState(false);
   const [pincodeQuery, setPincodeQuery] = useState("");
   const [pincodeResults, setPincodeResults] = useState<PincodeService[]>([]);
   const [pincodeMessage, setPincodeMessage] = useState("");
+  const [pincodeNotice, setPincodeNotice] = useState<"wrong" | "empty" | null>(null);
   const [pincodeBusy, setPincodeBusy] = useState(false);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (query.trim().length < 2) {
+      setOrders([]);
+      setOrderNotice("wrong");
+      setMessage("Order, docket or phone number sahi se daalo.");
+      return;
+    }
     setBusy(true);
     setMessage("");
+    setOrderNotice(null);
     try {
       const data = await api<{ results: Order[]; duration_ms: number; detected_type: string }>(`/search?q=${encodeURIComponent(query)}`);
       setOrders(data.results);
       setMessage(`${data.results.length} result${data.results.length === 1 ? "" : "s"} in ${data.duration_ms} ms`);
+      setOrderNotice(data.results.length ? null : "empty");
     } catch (exc) {
       setMessage(exc instanceof Error ? exc.message : "Search failed");
       setOrders([]);
+      setOrderNotice("wrong");
     } finally {
       setBusy(false);
     }
@@ -37,15 +49,24 @@ export function SearchPage() {
 
   async function submitPincode(event: FormEvent) {
     event.preventDefault();
+    if (!/^\d{6}$/.test(pincodeQuery.trim())) {
+      setPincodeResults([]);
+      setPincodeNotice("wrong");
+      setPincodeMessage("6 digit ka valid pincode daalo.");
+      return;
+    }
     setPincodeBusy(true);
     setPincodeMessage("");
+    setPincodeNotice(null);
     try {
       const data = await api<{ pincode: string; results: PincodeService[] }>(`/pincodes/search?q=${encodeURIComponent(pincodeQuery)}`);
       setPincodeResults(data.results);
       setPincodeMessage(data.results.length ? `${data.results.length} courier service found for ${data.pincode}.` : `No service found for ${data.pincode || pincodeQuery}.`);
+      setPincodeNotice(data.results.length ? null : "empty");
     } catch (exc) {
       setPincodeResults([]);
       setPincodeMessage(exc instanceof Error ? exc.message : "Pincode search failed");
+      setPincodeNotice("wrong");
     } finally {
       setPincodeBusy(false);
     }
@@ -55,7 +76,7 @@ export function SearchPage() {
     <section className="grid gap-6">
       <div className="grid gap-4 xl:grid-cols-2">
         <Card>
-          <form className="flex flex-col gap-3 sm:flex-row" onSubmit={submit}>
+          <form className="flex flex-col gap-3 sm:flex-row" onSubmit={submit} noValidate>
             <label className="sr-only" htmlFor="universal-search">Search by order, docket, phone, alternate phone</label>
             <Input id="universal-search" value={query} onChange={(event) => setQuery(event.target.value)} minLength={2} placeholder="Order, docket, phone" required />
             <Button disabled={busy}><Search size={18} /> {busy ? "Searching" : "Search"}</Button>
@@ -63,7 +84,7 @@ export function SearchPage() {
           {message && <p className="mt-4 text-sm text-slate-500">{message}</p>}
         </Card>
         <Card>
-          <form className="flex flex-col gap-3 sm:flex-row" onSubmit={submitPincode}>
+          <form className="flex flex-col gap-3 sm:flex-row" onSubmit={submitPincode} noValidate>
             <label className="sr-only" htmlFor="quick-pincode-search">Check pincode service</label>
             <Input id="quick-pincode-search" value={pincodeQuery} onChange={(event) => setPincodeQuery(event.target.value)} inputMode="numeric" minLength={6} maxLength={6} placeholder="Check pincode" required />
             <Button className="bg-accent" disabled={pincodeBusy}><MapPin size={18} /> {pincodeBusy ? "Checking" : "Check"}</Button>
@@ -72,7 +93,9 @@ export function SearchPage() {
         </Card>
       </div>
       {busy && <TruckLoader label="Searching shipment..." brand={inferCourierBrand(query)} />}
-      {pincodeBusy && <TruckLoader label="Checking pincode service..." brand="indiashoppe" />}
+      {pincodeBusy && <TruckLoader label="Checking pincode service..." brand="indiashoppe" stickerSrc="/stickers/pincode-dance.webp" stickerAlt="Dancing while checking pincode" />}
+      {!busy && orderNotice && <StickerNotice variant={orderNotice} message={orderNotice === "empty" ? "No order record found." : message} />}
+      {!pincodeBusy && pincodeNotice && <StickerNotice variant={pincodeNotice} message={pincodeNotice === "empty" ? "No pincode record found." : pincodeMessage} />}
       {!pincodeBusy && pincodeResults.length > 0 && (
         <Card className="overflow-hidden p-0">
           <div className="overflow-auto">

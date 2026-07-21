@@ -1,12 +1,15 @@
 interface TruckLoaderProps {
   label?: string;
   brand?: "delhivery" | "indiashoppe" | "generic";
+  stickerSrc?: string;
+  stickerAlt?: string;
 }
 
-export function TruckLoader({ label = "Loading...", brand = "generic" }: TruckLoaderProps) {
+export function TruckLoader({ label = "Loading...", brand = "generic", stickerSrc, stickerAlt = "Loading sticker" }: TruckLoaderProps) {
   const brandLabel = brand === "delhivery" ? "DELHIVERY" : brand === "indiashoppe" ? "indiaShoppe" : "CourierOps";
   return (
     <div className="truck-loader" role="status" aria-live="polite">
+      {stickerSrc && <img className="truck-loader__sticker" src={stickerSrc} alt={stickerAlt} />}
       <div className="truck-loader__sky">
         <div className="truck-loader__road" />
         <div className="truck-loader__vehicle">

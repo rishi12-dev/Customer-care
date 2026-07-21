@@ -216,6 +216,64 @@ button, input, select {
   font-weight: 800;
 }
 
+.truck-loader__sticker {
+  position: absolute;
+  top: 0.8rem;
+  right: 1rem;
+  z-index: 2;
+  width: clamp(4rem, 12vw, 6.4rem);
+  aspect-ratio: 1;
+  border: 0.18rem solid rgba(255, 255, 255, 0.9);
+  border-radius: 0.55rem;
+  object-fit: cover;
+  box-shadow: 0 0.7rem 1.6rem rgba(36, 49, 58, 0.2);
+  animation: sticker-dance 0.85s ease-in-out infinite alternate;
+}
+
+.sticker-notice {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.5rem;
+  background: hsl(var(--muted));
+  padding: 1rem;
+}
+
+.sticker-notice--wrong {
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.sticker-notice--empty {
+  background: #f8fafc;
+  color: #475569;
+}
+
+.dark .sticker-notice--wrong {
+  background: rgba(154, 52, 18, 0.18);
+  color: #fed7aa;
+}
+
+.dark .sticker-notice--empty {
+  background: rgba(71, 85, 105, 0.24);
+  color: #e2e8f0;
+}
+
+.sticker-notice__image {
+  width: 5rem;
+  aspect-ratio: 1;
+  flex: 0 0 auto;
+  border-radius: 0.55rem;
+  object-fit: cover;
+  box-shadow: 0 0.6rem 1.2rem rgba(15, 23, 42, 0.14);
+}
+
+.sticker-notice p {
+  margin: 0;
+  font-weight: 800;
+}
+
 @keyframes truck-drive {
   0% {
     transform: translateX(0) translateY(0);
@@ -228,6 +286,12 @@ button, input, select {
   }
   100% {
     transform: translateX(43rem) translateY(0);
+  }
+}
+
+@keyframes sticker-dance {
+  to {
+    transform: translateY(-0.25rem) rotate(3deg) scale(1.04);
   }
 }
 

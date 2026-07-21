@@ -1,6 +1,7 @@
 import { FormEvent, useState } from "react";
 import { Search, UploadCloud } from "lucide-react";
 import { api } from "../api/client";
+import { StickerNotice } from "../components/StickerNotice";
 import { TruckLoader } from "../components/TruckLoader";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
@@ -21,6 +22,7 @@ export function PincodePage() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<PincodeService[]>([]);
   const [message, setMessage] = useState("");
+  const [notice, setNotice] = useState<"wrong" | "empty" | null>(null);
   const [busy, setBusy] = useState(false);
   const [files, setFiles] = useState<FileList | null>(null);
   const [preview, setPreview] = useState<any>(null);
@@ -29,15 +31,24 @@ export function PincodePage() {
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    if (!/^\d{6}$/.test(query.trim())) {
+      setResults([]);
+      setNotice("wrong");
+      setMessage("6 digit ka valid pincode daalo.");
+      return;
+    }
     setBusy(true);
     setMessage("");
+    setNotice(null);
     try {
       const data = await api<{ pincode: string; results: PincodeService[] }>(`/pincodes/search?q=${encodeURIComponent(query)}`);
       setResults(data.results);
       setMessage(data.results.length ? `${data.results.length} courier service found for ${data.pincode}.` : `No service found for ${data.pincode || query}.`);
+      setNotice(data.results.length ? null : "empty");
     } catch (exc) {
       setResults([]);
       setMessage(exc instanceof Error ? exc.message : "Pincode search failed");
+      setNotice("wrong");
     } finally {
       setBusy(false);
     }
@@ -69,14 +80,15 @@ export function PincodePage() {
   return (
     <section className="grid gap-6">
       <Card>
-        <form className="flex flex-col gap-3 sm:flex-row" onSubmit={submit}>
+        <form className="flex flex-col gap-3 sm:flex-row" onSubmit={submit} noValidate>
           <label className="sr-only" htmlFor="pincode-search">Search pincode</label>
           <Input id="pincode-search" value={query} onChange={(event) => setQuery(event.target.value)} inputMode="numeric" minLength={6} maxLength={6} placeholder="Enter pincode" required />
           <Button disabled={busy}><Search size={18} /> {busy ? "Searching" : "Search"}</Button>
         </form>
         {message && <p className="mt-4 text-sm text-slate-600 dark:text-slate-300">{message}</p>}
       </Card>
-      {busy && <TruckLoader label="Checking pincode service..." brand="indiashoppe" />}
+      {busy && <TruckLoader label="Checking pincode service..." brand="indiashoppe" stickerSrc="/stickers/pincode-dance.webp" stickerAlt="Dancing while checking pincode" />}
+      {!busy && notice && <StickerNotice variant={notice} message={notice === "empty" ? "No pincode record found." : message} />}
 
       {!busy && results.length > 0 && (
         <Card className="overflow-hidden p-0">
