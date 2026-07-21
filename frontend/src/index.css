@@ -218,15 +218,15 @@ button, input, select {
 
 .truck-loader__sticker {
   position: absolute;
-  top: 0.8rem;
-  right: 1rem;
+  top: 0.65rem;
+  right: 0.85rem;
   z-index: 2;
-  width: clamp(4rem, 12vw, 6.4rem);
+  width: clamp(6.5rem, 18vw, 10rem);
   aspect-ratio: 1;
-  border: 0.18rem solid rgba(255, 255, 255, 0.9);
-  border-radius: 0.55rem;
+  border: 0.24rem solid rgba(255, 255, 255, 0.95);
+  border-radius: 0.75rem;
   object-fit: cover;
-  box-shadow: 0 0.7rem 1.6rem rgba(36, 49, 58, 0.2);
+  box-shadow: 0 0.9rem 2rem rgba(36, 49, 58, 0.25);
   animation: sticker-dance 0.85s ease-in-out infinite alternate;
 }
 
@@ -261,12 +261,12 @@ button, input, select {
 }
 
 .sticker-notice__image {
-  width: 5rem;
+  width: clamp(6rem, 16vw, 9rem);
   aspect-ratio: 1;
   flex: 0 0 auto;
-  border-radius: 0.55rem;
+  border-radius: 0.75rem;
   object-fit: cover;
-  box-shadow: 0 0.6rem 1.2rem rgba(15, 23, 42, 0.14);
+  box-shadow: 0 0.8rem 1.6rem rgba(15, 23, 42, 0.18);
 }
 
 .sticker-notice p {
