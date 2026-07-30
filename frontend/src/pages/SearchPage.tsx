@@ -1,6 +1,7 @@
 import { FormEvent, useState } from "react";
 import { Copy, ExternalLink, MapPin, Phone, Printer, Search } from "lucide-react";
 import { api } from "../api/client";
+import { PincodeDanceLoader } from "../components/PincodeDanceLoader";
 import { StickerNotice } from "../components/StickerNotice";
 import { StatusBadge } from "../components/StatusBadge";
 import { TruckLoader } from "../components/TruckLoader";
@@ -93,7 +94,7 @@ export function SearchPage() {
         </Card>
       </div>
       {busy && <TruckLoader label="Searching shipment..." brand={inferCourierBrand(query)} />}
-      {pincodeBusy && <TruckLoader label="Checking pincode service..." brand="indiashoppe" stickerSrc="/stickers/pincode-dance.webp" stickerAlt="Dancing while checking pincode" />}
+      {pincodeBusy && <PincodeDanceLoader label="Checking pincode service..." />}
       {!busy && orderNotice && <StickerNotice variant={orderNotice} message={orderNotice === "empty" ? "No order record found." : message} />}
       {!pincodeBusy && pincodeNotice && <StickerNotice variant={pincodeNotice} message={pincodeNotice === "empty" ? "No pincode record found." : pincodeMessage} />}
       {!pincodeBusy && pincodeResults.length > 0 && (

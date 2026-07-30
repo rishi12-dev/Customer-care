@@ -3,6 +3,7 @@ from io import BytesIO
 from time import perf_counter
 import re
 import pandas as pd
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 from app.models.entities import PincodeService
 
@@ -104,6 +105,14 @@ def _rows_from_frame(frame: pd.DataFrame, filename: str) -> list[dict]:
     return rows
 
 
+def _clear_pincode_services(db: Session) -> None:
+    dialect = db.bind.dialect.name if db.bind else ""
+    if dialect == "postgresql":
+        db.execute(text('TRUNCATE TABLE "pincode_services" RESTART IDENTITY'))
+        return
+    db.query(PincodeService).delete(synchronize_session=False)
+
+
 def replace_pincode_services(db: Session, files: list[tuple[str, bytes]]) -> dict:
     started = perf_counter()
     errors: list[str] = []
@@ -120,7 +129,7 @@ def replace_pincode_services(db: Session, files: list[tuple[str, bytes]]) -> dic
     if errors:
         return {"records": 0, "duration_ms": 0, "errors": errors, "warnings": warnings}
 
-    db.query(PincodeService).delete(synchronize_session=False)
+    _clear_pincode_services(db)
     inserted = 0
     for index in range(0, len(all_rows), BATCH_SIZE):
         batch = all_rows[index : index + BATCH_SIZE]

@@ -2,6 +2,7 @@ from datetime import date, datetime
 from io import BytesIO
 from time import perf_counter
 import pandas as pd
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 from app.models.entities import AuditAction, Backup, Order, UploadHistory, UploadStatus, User
 from app.services.audit_service import audit
@@ -137,6 +138,14 @@ def _insert_order_rows(db: Session, rows: list[dict]) -> None:
     db.bulk_insert_mappings(Order, rows)
 
 
+def _clear_orders(db: Session) -> None:
+    dialect = db.bind.dialect.name if db.bind else ""
+    if dialect == "postgresql":
+        db.execute(text('TRUNCATE TABLE "orders" RESTART IDENTITY'))
+        return
+    db.query(Order).delete(synchronize_session=False)
+
+
 def commit_upload(db: Session, content: bytes, filename: str, user: User, ip_address: str | None) -> dict:
     started = perf_counter()
     frame, errors, warnings = read_excel(content)
@@ -148,7 +157,7 @@ def commit_upload(db: Session, content: bytes, filename: str, user: User, ip_add
         return {"records": 0, "duration_ms": 0, "errors": errors, "warnings": warnings, "backup_id": 0}
 
     delete_automatic_backups(db)
-    db.query(Order).delete(synchronize_session=False)
+    _clear_orders(db)
     records: list[dict] = []
     record_count = 0
     for _, row in frame.iterrows():
@@ -188,7 +197,7 @@ def restore_backup(db: Session, backup_id: int, user: User, ip_address: str | No
     backup = db.get(Backup, backup_id)
     if not backup:
         raise ValueError("Backup not found")
-    db.query(Order).delete(synchronize_session=False)
+    _clear_orders(db)
     rows = []
     record_count = 0
     for item in backup.payload:

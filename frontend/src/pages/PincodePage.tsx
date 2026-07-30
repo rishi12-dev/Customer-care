@@ -1,8 +1,8 @@
 import { FormEvent, useState } from "react";
 import { Search, UploadCloud } from "lucide-react";
 import { api } from "../api/client";
+import { PincodeDanceLoader } from "../components/PincodeDanceLoader";
 import { StickerNotice } from "../components/StickerNotice";
-import { TruckLoader } from "../components/TruckLoader";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { Input } from "../components/ui/Input";
@@ -87,7 +87,7 @@ export function PincodePage() {
         </form>
         {message && <p className="mt-4 text-sm text-slate-600 dark:text-slate-300">{message}</p>}
       </Card>
-      {busy && <TruckLoader label="Checking pincode service..." brand="indiashoppe" stickerSrc="/stickers/pincode-dance.webp" stickerAlt="Dancing while checking pincode" />}
+      {busy && <PincodeDanceLoader label="Checking pincode service..." />}
       {!busy && notice && <StickerNotice variant={notice} message={notice === "empty" ? "No pincode record found." : message} />}
 
       {!busy && results.length > 0 && (
