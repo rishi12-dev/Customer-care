@@ -4,6 +4,7 @@ from uuid import uuid4
 from app.config.database import SessionLocal
 from app.models.entities import User
 from app.services.excel_service import commit_upload
+from app.services.ndr_service import replace_ndr_records
 
 
 _executor = ThreadPoolExecutor(max_workers=1)
@@ -40,6 +41,24 @@ def start_upload_job(content: bytes, filename: str, user_id: int, ip_address: st
     return job_id
 
 
+def start_ndr_upload_job(content: bytes, filename: str, user_id: int) -> str:
+    job_id = uuid4().hex
+    _set_job(
+        job_id,
+        {
+            "job_id": job_id,
+            "status": "processing",
+            "records": 0,
+            "duration_ms": 0,
+            "errors": [],
+            "warnings": ["NDR tracking upload is processing. Large files can take a few minutes."],
+            "backup_id": 0,
+        },
+    )
+    _executor.submit(_run_ndr_upload_job, job_id, content, filename, user_id)
+    return job_id
+
+
 def _run_upload_job(job_id: str, content: bytes, filename: str, user_id: int, ip_address: str | None) -> None:
     db = SessionLocal()
     try:
@@ -47,6 +66,31 @@ def _run_upload_job(job_id: str, content: bytes, filename: str, user_id: int, ip
         if not user:
             raise ValueError("Upload user not found")
         result = commit_upload(db, content, filename, user, ip_address)
+        _set_job(job_id, {"status": "completed", **result})
+    except Exception as exc:
+        db.rollback()
+        _set_job(
+            job_id,
+            {
+                "status": "failed",
+                "records": 0,
+                "duration_ms": 0,
+                "errors": [str(exc) or exc.__class__.__name__],
+                "warnings": [],
+                "backup_id": 0,
+            },
+        )
+    finally:
+        db.close()
+
+
+def _run_ndr_upload_job(job_id: str, content: bytes, filename: str, user_id: int) -> None:
+    db = SessionLocal()
+    try:
+        user = db.get(User, user_id)
+        if not user:
+            raise ValueError("Upload user not found")
+        result = replace_ndr_records(db, content, filename)
         _set_job(job_id, {"status": "completed", **result})
     except Exception as exc:
         db.rollback()

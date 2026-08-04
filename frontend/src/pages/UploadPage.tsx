@@ -87,15 +87,38 @@ export function UploadPage() {
         setNdrPreview(data);
         setNdrMessage(data.valid ? `NDR preview valid: ${data.records} rows checked. Click Save NDR Tracking to replace old tracking history.` : "NDR preview failed. Tracking history was not changed.");
       } else {
-        setNdrMessage(`NDR tracking updated: ${data.records} rows saved in ${data.duration_ms} ms.`);
-        setNdrPreview(null);
-        queryClient.invalidateQueries();
+        if (data.status === "processing" && data.job_id) {
+          setNdrMessage("NDR tracking upload processing... Please keep this page open.");
+          await waitForNdrUpload(data.job_id);
+        } else {
+          setNdrMessage(`NDR tracking updated: ${data.records} rows saved in ${data.duration_ms} ms.`);
+          setNdrPreview(null);
+          queryClient.invalidateQueries();
+        }
       }
     } catch (exc) {
       setNdrMessage(exc instanceof Error ? exc.message : "NDR upload failed");
     } finally {
       setNdrBusy(false);
     }
+  }
+
+  async function waitForNdrUpload(jobId: string) {
+    for (let attempt = 1; attempt <= 240; attempt += 1) {
+      await wait(2000);
+      const data = await api<UploadResult>(`/upload/jobs/${jobId}`);
+      if (data.status === "completed") {
+        setNdrMessage(`NDR tracking updated: ${data.records} rows saved in ${data.duration_ms} ms.`);
+        setNdrPreview(null);
+        queryClient.invalidateQueries();
+        return;
+      }
+      if (data.status === "failed") {
+        throw new Error(data.errors?.[0] || "NDR upload failed");
+      }
+      setNdrMessage(`NDR tracking upload processing... ${attempt * 2}s elapsed. Please keep this page open.`);
+    }
+    throw new Error("NDR upload is still processing. Please check again after a few minutes.");
   }
 
   return (
