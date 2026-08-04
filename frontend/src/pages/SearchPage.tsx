@@ -1,5 +1,5 @@
 import { FormEvent, useState } from "react";
-import { Copy, ExternalLink, MapPin, Phone, Printer, Search } from "lucide-react";
+import { Copy, ExternalLink, History, MapPin, Phone, Printer, Search } from "lucide-react";
 import { api } from "../api/client";
 import { PincodeDanceLoader } from "../components/PincodeDanceLoader";
 import { StickerNotice } from "../components/StickerNotice";
@@ -8,7 +8,7 @@ import { TruckLoader } from "../components/TruckLoader";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { Input } from "../components/ui/Input";
-import type { Order, PincodeService } from "../types";
+import type { NdrTrackingRecord, Order, PincodeService } from "../types";
 import { buildStatusMessage } from "../utils/copyStatus";
 
 export function SearchPage() {
@@ -22,6 +22,9 @@ export function SearchPage() {
   const [pincodeMessage, setPincodeMessage] = useState("");
   const [pincodeNotice, setPincodeNotice] = useState<"wrong" | "empty" | null>(null);
   const [pincodeBusy, setPincodeBusy] = useState(false);
+  const [expandedHistoryId, setExpandedHistoryId] = useState<number | null>(null);
+  const [historyByOrder, setHistoryByOrder] = useState<Record<number, NdrTrackingRecord[]>>({});
+  const [historyMessage, setHistoryMessage] = useState("");
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -70,6 +73,27 @@ export function SearchPage() {
       setPincodeNotice("wrong");
     } finally {
       setPincodeBusy(false);
+    }
+  }
+
+  async function toggleTrackingHistory(order: Order) {
+    if (expandedHistoryId === order.id) {
+      setExpandedHistoryId(null);
+      return;
+    }
+    setExpandedHistoryId(order.id);
+    setHistoryMessage("");
+    if (historyByOrder[order.id]) {
+      return;
+    }
+    try {
+      const data = await api<{ order_id: number; results: NdrTrackingRecord[] }>(`/orders/${order.id}/tracking-history`);
+      setHistoryByOrder((current) => ({ ...current, [order.id]: data.results }));
+      if (!data.results.length) {
+        setHistoryMessage("No tracking history found for this order.");
+      }
+    } catch (exc) {
+      setHistoryMessage(exc instanceof Error ? exc.message : "Tracking history failed");
     }
   }
 
@@ -161,8 +185,17 @@ export function SearchPage() {
                 <Button className="bg-slate-900 dark:bg-white dark:text-slate-950" type="button" onClick={() => window.print()}>
                   <Printer size={16} /> Print
                 </Button>
+                <Button type="button" onClick={() => toggleTrackingHistory(order)}>
+                  <History size={16} /> Tracking History
+                </Button>
               </div>
             </div>
+            {expandedHistoryId === order.id && (
+              <div className="xl:col-span-3">
+                {historyMessage && !historyByOrder[order.id]?.length && <p className="text-sm text-slate-500">{historyMessage}</p>}
+                {historyByOrder[order.id]?.length > 0 && <TrackingHistoryTable rows={historyByOrder[order.id]} />}
+              </div>
+            )}
           </Card>
         ))}
       </div>
@@ -190,4 +223,35 @@ function isValidShipmentSearch(value: string) {
   const normalized = value.replace(/[^a-zA-Z0-9]/g, "");
   const validLengths = new Set([5, 7, 8, 9, 10, 11, 12]);
   return validLengths.has(normalized.length);
+}
+
+function TrackingHistoryTable({ rows }: { rows: NdrTrackingRecord[] }) {
+  const rawHeaders = Array.from(new Set(rows.flatMap((row) => Object.keys(row.raw_data || {})))).slice(0, 20);
+
+  return (
+    <div className="mt-4 overflow-auto rounded-md border border-border">
+      <table className="w-full min-w-[980px] text-left text-xs">
+        <thead className="bg-muted">
+          <tr>
+            <th className="p-2">Time</th>
+            <th className="p-2">Status</th>
+            <th className="p-2">Agent</th>
+            <th className="p-2">Remark</th>
+            {rawHeaders.map((header) => <th key={header} className="p-2">{header}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.id} className="border-t border-border align-top">
+              <td className="p-2">{row.event_time ?? "N/A"}</td>
+              <td className="p-2">{row.status ?? "N/A"}</td>
+              <td className="p-2">{row.agent ?? "N/A"}</td>
+              <td className="p-2">{row.remark ?? "N/A"}</td>
+              {rawHeaders.map((header) => <td key={header} className="p-2">{String(row.raw_data?.[header] ?? "")}</td>)}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }

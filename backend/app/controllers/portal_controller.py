@@ -7,6 +7,7 @@ from app.config.database import get_db
 from app.models.entities import AppSetting, Backup, Order, PincodeService, SearchHistory, UploadHistory, User
 from app.schemas.dto import DashboardResponse, OrderRead, SearchResponse, SettingUpdate
 from app.services.excel_service import restore_backup
+from app.services.ndr_service import tracking_history_for_order
 from app.services.search_service import search_orders
 
 
@@ -68,6 +69,14 @@ def order_detail(order_id: int, user: User = Depends(current_user), db: Session 
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     return order
+
+
+@router.get("/orders/{order_id}/tracking-history")
+def order_tracking_history(order_id: int, user: User = Depends(current_user), db: Session = Depends(get_db)):
+    order = db.get(Order, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    return {"order_id": order_id, "results": tracking_history_for_order(db, order)}
 
 
 @router.get("/recent-search")

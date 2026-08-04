@@ -1,9 +1,12 @@
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from app.api.dependencies import require_admin, request_ip
+from app.config.database import get_db
 from app.models.entities import User
 from app.schemas.dto import UploadCommitResponse, UploadPreview
 from app.services.excel_service import preview_excel
+from app.services.ndr_service import preview_ndr_file, replace_ndr_records
 from app.services.upload_job_service import get_upload_job, start_upload_job
+from sqlalchemy.orm import Session
 
 
 router = APIRouter(prefix="/upload", tags=["upload"])
@@ -36,3 +39,13 @@ def upload_job(job_id: str, user: User = Depends(require_admin)):
     if not job:
         raise HTTPException(status_code=404, detail="Upload job not found")
     return job
+
+
+@router.post("/ndr/preview", response_model=UploadPreview)
+def preview_ndr(file: UploadFile = File(...), user: User = Depends(require_admin)):
+    return preview_ndr_file(_read_excel_file(file), file.filename)
+
+
+@router.post("/ndr", response_model=UploadCommitResponse)
+def upload_ndr(file: UploadFile = File(...), user: User = Depends(require_admin), db: Session = Depends(get_db)):
+    return replace_ndr_records(db, _read_excel_file(file), file.filename)

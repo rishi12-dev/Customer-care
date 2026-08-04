@@ -83,6 +83,27 @@ class PincodeService(Base):
     )
 
 
+class NdrTrackingRecord(Base):
+    __tablename__ = "ndr_tracking_records"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    upload_filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    row_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    order_no: Mapped[str | None] = mapped_column(String(80), index=True)
+    docket_number: Mapped[str | None] = mapped_column(String(80), index=True)
+    phone: Mapped[str | None] = mapped_column(String(40), index=True)
+    status: Mapped[str | None] = mapped_column(String(160), index=True)
+    agent: Mapped[str | None] = mapped_column(String(160), index=True)
+    remark: Mapped[str | None] = mapped_column(Text)
+    event_time: Mapped[str | None] = mapped_column(String(120), index=True)
+    raw_data: Mapped[dict] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        Index("ix_ndr_tracking_lookup", "order_no", "docket_number", "phone"),
+    )
+
+
 class UploadHistory(Base):
     __tablename__ = "upload_history"
 

@@ -24,6 +24,20 @@ export interface Order {
   delivery_date: string | null;
 }
 
+export interface NdrTrackingRecord {
+  id: number;
+  row_number: number;
+  upload_filename: string;
+  order_no: string | null;
+  docket_number: string | null;
+  phone: string | null;
+  status: string | null;
+  agent: string | null;
+  remark: string | null;
+  event_time: string | null;
+  raw_data: Record<string, string | number | boolean | null>;
+}
+
 export interface PincodeService {
   id: number;
   pincode: string;
