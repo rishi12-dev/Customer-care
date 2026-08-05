@@ -211,6 +211,25 @@ def replace_ndr_records(db: Session, content: bytes, filename: str) -> dict:
     return {"records": inserted, "duration_ms": int((perf_counter() - started) * 1000), "errors": [], "warnings": warnings, "backup_id": 0}
 
 
+def _serialize_tracking_rows(rows: list[NdrTrackingRecord]) -> list[dict]:
+    return [
+        {
+            "id": row.id,
+            "row_number": row.row_number,
+            "upload_filename": row.upload_filename,
+            "order_no": row.order_no,
+            "docket_number": row.docket_number,
+            "phone": row.phone,
+            "status": row.status,
+            "agent": row.agent,
+            "remark": row.remark,
+            "event_time": row.event_time,
+            "raw_data": row.raw_data,
+        }
+        for row in rows
+    ]
+
+
 def tracking_history_for_order(db: Session, order: Order) -> list[dict]:
     phone_digits = _digits(order.customer_phone_number)
     alt_digits = _digits(order.alt_no)
@@ -229,19 +248,38 @@ def tracking_history_for_order(db: Session, order: Order) -> list[dict]:
         .limit(100)
         .all()
     )
-    return [
-        {
-            "id": row.id,
-            "row_number": row.row_number,
-            "upload_filename": row.upload_filename,
-            "order_no": row.order_no,
-            "docket_number": row.docket_number,
-            "phone": row.phone,
-            "status": row.status,
-            "agent": row.agent,
-            "remark": row.remark,
-            "event_time": row.event_time,
-            "raw_data": row.raw_data,
-        }
-        for row in rows
-    ]
+    return _serialize_tracking_rows(rows)
+
+
+def search_tracking_history(db: Session, query: str, limit: int = 100) -> list[dict]:
+    cleaned = str(query or "").strip()
+    compact = re.sub(r"[^a-zA-Z0-9]", "", cleaned)
+    digits = _digits(cleaned)
+    candidates = {cleaned}
+    if compact:
+        candidates.add(compact)
+    if digits:
+        candidates.add(digits)
+
+    filters = []
+    for candidate in candidates:
+        filters.extend(
+            [
+                NdrTrackingRecord.order_no == candidate,
+                NdrTrackingRecord.docket_number == candidate,
+            ]
+        )
+    if digits:
+        filters.append(NdrTrackingRecord.phone == digits)
+
+    if not filters:
+        return []
+
+    rows = (
+        db.query(NdrTrackingRecord)
+        .filter(or_(*filters))
+        .order_by(NdrTrackingRecord.id.desc())
+        .limit(limit)
+        .all()
+    )
+    return _serialize_tracking_rows(rows)

@@ -25,11 +25,15 @@ export function SearchPage() {
   const [expandedHistoryId, setExpandedHistoryId] = useState<number | null>(null);
   const [historyByOrder, setHistoryByOrder] = useState<Record<number, NdrTrackingRecord[]>>({});
   const [historyMessage, setHistoryMessage] = useState("");
+  const [globalTrackingRows, setGlobalTrackingRows] = useState<NdrTrackingRecord[]>([]);
+  const [globalTrackingMessage, setGlobalTrackingMessage] = useState("");
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (!isValidShipmentSearch(query)) {
       setOrders([]);
+      setGlobalTrackingRows([]);
+      setGlobalTrackingMessage("");
       setOrderNotice("wrong");
       setMessage("Order, docket ya mobile number ka length sahi nahi hai.");
       return;
@@ -37,14 +41,23 @@ export function SearchPage() {
     setBusy(true);
     setMessage("");
     setOrderNotice(null);
+    setGlobalTrackingRows([]);
+    setGlobalTrackingMessage("");
     try {
-      const data = await api<{ results: Order[]; duration_ms: number; detected_type: string }>(`/search?q=${encodeURIComponent(query)}`);
-      setOrders(data.results);
-      setMessage(`${data.results.length} result${data.results.length === 1 ? "" : "s"} in ${data.duration_ms} ms`);
-      setOrderNotice(data.results.length ? null : "empty");
+      const [orderData, trackingData] = await Promise.all([
+        api<{ results: Order[]; duration_ms: number; detected_type: string }>(`/search?q=${encodeURIComponent(query)}`),
+        api<{ query: string; results: NdrTrackingRecord[] }>(`/ndr/search?q=${encodeURIComponent(query)}`),
+      ]);
+      setOrders(orderData.results);
+      setGlobalTrackingRows(trackingData.results);
+      setGlobalTrackingMessage(trackingData.results.length ? `${trackingData.results.length} NDR tracking record found.` : "");
+      setMessage(`${orderData.results.length} order result${orderData.results.length === 1 ? "" : "s"} in ${orderData.duration_ms} ms`);
+      setOrderNotice(orderData.results.length || trackingData.results.length ? null : "empty");
     } catch (exc) {
       setMessage(exc instanceof Error ? exc.message : "Search failed");
       setOrders([]);
+      setGlobalTrackingRows([]);
+      setGlobalTrackingMessage("");
       setOrderNotice("wrong");
     } finally {
       setBusy(false);
@@ -119,8 +132,19 @@ export function SearchPage() {
       </div>
       {busy && <TruckLoader label="Searching shipment..." brand={inferCourierBrand(query)} />}
       {pincodeBusy && <PincodeDanceLoader label="Checking pincode service..." />}
-      {!busy && orderNotice && <StickerNotice variant={orderNotice} message={orderNotice === "empty" ? "No order record found." : message} />}
+      {!busy && orderNotice && <StickerNotice variant={orderNotice} message={orderNotice === "empty" ? "No order ya NDR record found." : message} />}
       {!pincodeBusy && pincodeNotice && <StickerNotice variant={pincodeNotice} message={pincodeNotice === "empty" ? "No pincode record found." : pincodeMessage} />}
+      {!busy && globalTrackingRows.length > 0 && (
+        <Card>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="font-semibold">NDR Tracking History</h2>
+              {globalTrackingMessage && <p className="mt-1 text-sm text-slate-500">{globalTrackingMessage}</p>}
+            </div>
+          </div>
+          <TrackingHistoryTable rows={globalTrackingRows} />
+        </Card>
+      )}
       {!pincodeBusy && pincodeResults.length > 0 && (
         <Card className="overflow-hidden p-0">
           <div className="overflow-auto">
