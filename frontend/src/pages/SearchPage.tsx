@@ -1,5 +1,5 @@
 import { Fragment, FormEvent, useState } from "react";
-import { Copy, ExternalLink, Eye, History, MapPin, Phone, Printer, Search } from "lucide-react";
+import { Copy, ExternalLink, Eye, History, MapPin, MoreVertical, Phone, Printer, Search } from "lucide-react";
 import { api } from "../api/client";
 import { PincodeDanceLoader } from "../components/PincodeDanceLoader";
 import { StickerNotice } from "../components/StickerNotice";
@@ -9,6 +9,7 @@ import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { Input } from "../components/ui/Input";
 import type { NdrTrackingRecord, Order, PincodeService } from "../types";
+import { cn } from "../utils/cn";
 import { buildStatusMessage } from "../utils/copyStatus";
 
 export function SearchPage() {
@@ -251,15 +252,16 @@ function isValidShipmentSearch(value: string) {
 
 function TrackingHistoryTable({ rows }: { rows: NdrTrackingRecord[] }) {
   const [expandedRowId, setExpandedRowId] = useState<number | null>(null);
+  const [actionMenuId, setActionMenuId] = useState<number | null>(null);
 
   return (
     <div className="mt-4 overflow-hidden rounded-md border border-border">
-      <div className="overflow-auto">
-        <table className="w-full min-w-[1480px] text-left text-xs">
+      <div className="overflow-hidden">
+        <table className="w-full table-fixed text-left text-[11px] xl:text-xs">
           <thead className="bg-muted">
             <tr>
-              {NDR_SUMMARY_COLUMNS.map((column) => <th key={column.label} className="p-3 font-semibold">{column.label}</th>)}
-              <th className="p-3 font-semibold">Action</th>
+              {NDR_SUMMARY_COLUMNS.map((column) => <th key={column.label} className={cn("p-2 font-semibold", column.className)}>{column.label}</th>)}
+              <th className="w-12 p-2 text-right font-semibold">Menu</th>
             </tr>
           </thead>
           <tbody>
@@ -267,14 +269,21 @@ function TrackingHistoryTable({ rows }: { rows: NdrTrackingRecord[] }) {
               <Fragment key={row.id}>
                 <tr className="border-t border-border align-top hover:bg-muted/50">
                   {NDR_SUMMARY_COLUMNS.map((column) => (
-                    <td key={column.label} className="max-w-44 whitespace-normal p-3 leading-relaxed">
+                    <td key={column.label} className={cn("break-words p-2 leading-relaxed", column.className)}>
                       {formatCellValue(readTrackingValue(row, column))}
                     </td>
                   ))}
-                  <td className="p-3">
-                    <Button className="h-9 whitespace-nowrap px-3 text-xs" type="button" onClick={() => setExpandedRowId(expandedRowId === row.id ? null : row.id)}>
-                      <Eye size={14} /> Get full details
-                    </Button>
+                  <td className="relative p-2 text-right">
+                    <button className="inline-grid h-8 w-8 place-items-center rounded-md hover:bg-muted" type="button" onClick={() => setActionMenuId(actionMenuId === row.id ? null : row.id)} aria-label="Open row menu">
+                      <MoreVertical size={16} />
+                    </button>
+                    {actionMenuId === row.id && (
+                      <div className="absolute right-2 top-10 z-20 w-44 rounded-md border border-border bg-background p-1 text-left shadow-xl">
+                        <button className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-xs font-semibold hover:bg-muted" type="button" onClick={() => { setExpandedRowId(expandedRowId === row.id ? null : row.id); setActionMenuId(null); }}>
+                          <Eye size={14} /> Get full details
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
                 {expandedRowId === row.id && (
@@ -301,25 +310,25 @@ function TrackingHistoryTable({ rows }: { rows: NdrTrackingRecord[] }) {
 }
 
 const NDR_SUMMARY_COLUMNS = [
-  { label: "Time", primary: "event_time" },
-  { label: "Status", primary: "status" },
-  { label: "Agent", primary: "agent" },
-  { label: "Remark", primary: "remark" },
-  { label: "Warehouse", raw: ["Warehouse"] },
-  { label: "OrderNo", raw: ["OrderNo", "Order No", "Order"] },
-  { label: "Order Date", raw: ["Order Date", "OrderDate"] },
-  { label: "Cx Name", raw: ["Cx Name", "Customer Name", "Customer"] },
-  { label: "Mobile No", raw: ["Mobile No", "Mobile", "Phone"] },
-  { label: "Alt No", raw: ["Alt No", "Alternate No", "Alternate Number"] },
-  { label: "ShippingDate", raw: ["ShippingDate", "Shipping Date"] },
-  { label: "Shipment", raw: ["Shipment", "Courier"] },
-  { label: "PincodeZone", raw: ["PincodeZone", "Pincode Zone", "Zone"] },
-  { label: "Docketno", raw: ["Docketno", "Docket No", "Docket", "AWB"] },
-  { label: "OUR EDD", raw: ["OUR EDD", "Our EDD"] },
-  { label: "PDD", raw: ["PDD"] },
-  { label: "OMS STATUS", raw: ["OMS STATUS", "OMS Status"] },
-  { label: "Current status", raw: ["Current status", "Current Status"] },
-  { label: "Attempts", raw: ["Attempts", "Attempt"] },
+  { label: "Time", primary: "event_time", className: "w-[7%]" },
+  { label: "Status", primary: "status", className: "w-[9%]" },
+  { label: "Agent", primary: "agent", className: "hidden w-[7%] md:table-cell" },
+  { label: "Remark", primary: "remark", className: "w-[13%]" },
+  { label: "Warehouse", raw: ["Warehouse"], className: "hidden w-[8%] lg:table-cell" },
+  { label: "OrderNo", raw: ["OrderNo", "Order No", "Order"], className: "w-[7%]" },
+  { label: "Order Date", raw: ["Order Date", "OrderDate"], className: "hidden w-[7%] xl:table-cell" },
+  { label: "Cx Name", raw: ["Cx Name", "Customer Name", "Customer"], className: "w-[10%]" },
+  { label: "Mobile No", raw: ["Mobile No", "Mobile", "Phone"], className: "hidden w-[8%] sm:table-cell" },
+  { label: "Alt No", raw: ["Alt No", "Alternate No", "Alternate Number"], className: "hidden w-[7%] 2xl:table-cell" },
+  { label: "ShippingDate", raw: ["ShippingDate", "Shipping Date"], className: "hidden w-[8%] xl:table-cell" },
+  { label: "Shipment", raw: ["Shipment", "Courier"], className: "hidden w-[8%] lg:table-cell" },
+  { label: "PincodeZone", raw: ["PincodeZone", "Pincode Zone", "Zone"], className: "hidden w-[7%] 2xl:table-cell" },
+  { label: "Docketno", raw: ["Docketno", "Docket No", "Docket", "AWB"], className: "hidden w-[8%] md:table-cell" },
+  { label: "OUR EDD", raw: ["OUR EDD", "Our EDD"], className: "hidden w-[7%] 2xl:table-cell" },
+  { label: "PDD", raw: ["PDD"], className: "hidden w-[6%] 2xl:table-cell" },
+  { label: "OMS STATUS", raw: ["OMS STATUS", "OMS Status"], className: "hidden w-[8%] 2xl:table-cell" },
+  { label: "Current status", raw: ["Current status", "Current Status"], className: "hidden w-[8%] xl:table-cell" },
+  { label: "Attempts", raw: ["Attempts", "Attempt"], className: "hidden w-[5%] xl:table-cell" },
 ] as const;
 
 type NdrSummaryColumn = (typeof NDR_SUMMARY_COLUMNS)[number];

@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { ArchiveRestore, BarChart3, History, LogOut, MapPin, Moon, Search, Settings, Upload, Users, X } from "lucide-react";
+import { ArchiveRestore, BarChart3, History, LogOut, MapPin, Moon, MoreVertical, Search, Settings, Upload, Users, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "../components/ui/Button";
 import { useAuth } from "../context/AuthContext";
@@ -31,6 +31,7 @@ export function AppLayout() {
   const [showWelcome, setShowWelcome] = useState(true);
   const [showTour, setShowTour] = useState(() => localStorage.getItem("courierops.tour.done") !== "true");
   const [previewAvatar, setPreviewAvatar] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
@@ -45,7 +46,7 @@ export function AppLayout() {
   const links = user?.role === "admin" ? [...customerLinks, ...adminLinks] : customerLinks;
   return (
     <div className="min-h-screen lg:flex">
-      <aside className="border-r border-border bg-white/85 p-4 backdrop-blur dark:bg-black/20 lg:fixed lg:inset-y-0 lg:w-72">
+      <aside className="hidden border-r border-border bg-white/85 p-4 backdrop-blur dark:bg-black/20 lg:fixed lg:inset-y-0 lg:block lg:w-72">
         <div className="mb-8 flex items-center gap-3">
           <button className="rounded-lg text-left" onClick={() => setPreviewAvatar(true)} title="View profile image">
             <Avatar name={user?.full_name} src={user?.avatar_data_url} />
@@ -70,9 +71,32 @@ export function AppLayout() {
             <div className="text-sm text-slate-500">Customer Care Portal</div>
             <div className="font-semibold">{user?.role === "admin" ? "Admin workspace" : "Search workspace"}</div>
           </div>
-          <div className="flex gap-2">
+          <div className="relative flex gap-2">
             <Button aria-label="Toggle theme" className="w-10 px-0 bg-accent" onClick={() => setDark((value) => !value)}><Moon size={18} /></Button>
-            <Button className="bg-slate-900 dark:bg-white dark:text-slate-950" onClick={() => logout().then(() => navigate("/login"))}><LogOut size={18} /> Logout</Button>
+            <Button aria-label="Open menu" className="w-10 px-0 lg:hidden" onClick={() => setMobileMenuOpen((value) => !value)}><MoreVertical size={18} /></Button>
+            <Button className="hidden bg-slate-900 dark:bg-white dark:text-slate-950 sm:inline-flex" onClick={() => logout().then(() => navigate("/login"))}><LogOut size={18} /> Logout</Button>
+            {mobileMenuOpen && (
+              <div className="absolute right-0 top-12 z-30 w-64 rounded-md border border-border bg-background p-2 shadow-xl lg:hidden">
+                <div className="mb-2 flex items-center gap-3 border-b border-border p-2 pb-3">
+                  <button className="rounded-lg text-left" onClick={() => { setPreviewAvatar(true); setMobileMenuOpen(false); }} title="View profile image">
+                    <Avatar name={user?.full_name} src={user?.avatar_data_url} />
+                  </button>
+                  <div>
+                    <div className="font-bold">CourierOps</div>
+                    <div className="text-xs text-slate-500">{user?.full_name}</div>
+                  </div>
+                </div>
+                <nav className="grid gap-1">
+                  {links.map((link) => (
+                    <NavLink key={link.to} to={link.to} onClick={() => setMobileMenuOpen(false)} className={({ isActive }) => cn("flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition", isActive ? "bg-primary text-white" : "hover:bg-muted")}>
+                      <link.icon size={18} /> {link.label}
+                    </NavLink>
+                  ))}
+                </nav>
+                <button className="mt-2 w-full rounded-md px-3 py-2 text-left text-sm font-semibold text-primary hover:bg-muted" onClick={() => { setShowTour(true); setMobileMenuOpen(false); }}>Open tour</button>
+                <button className="mt-1 flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-semibold hover:bg-muted" onClick={() => logout().then(() => navigate("/login"))}><LogOut size={18} /> Logout</button>
+              </div>
+            )}
           </div>
         </header>
         <main className="p-5 lg:p-8"><Outlet /></main>
