@@ -1,5 +1,5 @@
-import { FormEvent, useState } from "react";
-import { Copy, ExternalLink, History, MapPin, Phone, Printer, Search } from "lucide-react";
+import { Fragment, FormEvent, useState } from "react";
+import { Copy, ExternalLink, Eye, History, MapPin, Phone, Printer, Search } from "lucide-react";
 import { api } from "../api/client";
 import { PincodeDanceLoader } from "../components/PincodeDanceLoader";
 import { StickerNotice } from "../components/StickerNotice";
@@ -250,32 +250,109 @@ function isValidShipmentSearch(value: string) {
 }
 
 function TrackingHistoryTable({ rows }: { rows: NdrTrackingRecord[] }) {
-  const rawHeaders = Array.from(new Set(rows.flatMap((row) => Object.keys(row.raw_data || {})))).slice(0, 20);
+  const [expandedRowId, setExpandedRowId] = useState<number | null>(null);
 
   return (
-    <div className="mt-4 overflow-auto rounded-md border border-border">
-      <table className="w-full min-w-[980px] text-left text-xs">
-        <thead className="bg-muted">
-          <tr>
-            <th className="p-2">Time</th>
-            <th className="p-2">Status</th>
-            <th className="p-2">Agent</th>
-            <th className="p-2">Remark</th>
-            {rawHeaders.map((header) => <th key={header} className="p-2">{header}</th>)}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.id} className="border-t border-border align-top">
-              <td className="p-2">{row.event_time ?? "N/A"}</td>
-              <td className="p-2">{row.status ?? "N/A"}</td>
-              <td className="p-2">{row.agent ?? "N/A"}</td>
-              <td className="p-2">{row.remark ?? "N/A"}</td>
-              {rawHeaders.map((header) => <td key={header} className="p-2">{String(row.raw_data?.[header] ?? "")}</td>)}
+    <div className="mt-4 overflow-hidden rounded-md border border-border">
+      <div className="overflow-auto">
+        <table className="w-full min-w-[1480px] text-left text-xs">
+          <thead className="bg-muted">
+            <tr>
+              {NDR_SUMMARY_COLUMNS.map((column) => <th key={column.label} className="p-3 font-semibold">{column.label}</th>)}
+              <th className="p-3 font-semibold">Action</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <Fragment key={row.id}>
+                <tr className="border-t border-border align-top hover:bg-muted/50">
+                  {NDR_SUMMARY_COLUMNS.map((column) => (
+                    <td key={column.label} className="max-w-44 whitespace-normal p-3 leading-relaxed">
+                      {formatCellValue(readTrackingValue(row, column))}
+                    </td>
+                  ))}
+                  <td className="p-3">
+                    <Button className="h-9 whitespace-nowrap px-3 text-xs" type="button" onClick={() => setExpandedRowId(expandedRowId === row.id ? null : row.id)}>
+                      <Eye size={14} /> Get full details
+                    </Button>
+                  </td>
+                </tr>
+                {expandedRowId === row.id && (
+                  <tr className="border-t border-border bg-muted/30">
+                    <td colSpan={NDR_SUMMARY_COLUMNS.length + 1} className="p-4">
+                      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                        {Object.entries(row.raw_data || {}).map(([key, value]) => (
+                          <div key={key} className="rounded-md border border-border bg-background p-3">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{key}</p>
+                            <p className="mt-1 break-words text-sm">{formatCellValue(value)}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
+}
+
+const NDR_SUMMARY_COLUMNS = [
+  { label: "Time", primary: "event_time" },
+  { label: "Status", primary: "status" },
+  { label: "Agent", primary: "agent" },
+  { label: "Remark", primary: "remark" },
+  { label: "Warehouse", raw: ["Warehouse"] },
+  { label: "OrderNo", raw: ["OrderNo", "Order No", "Order"] },
+  { label: "Order Date", raw: ["Order Date", "OrderDate"] },
+  { label: "Cx Name", raw: ["Cx Name", "Customer Name", "Customer"] },
+  { label: "Mobile No", raw: ["Mobile No", "Mobile", "Phone"] },
+  { label: "Alt No", raw: ["Alt No", "Alternate No", "Alternate Number"] },
+  { label: "ShippingDate", raw: ["ShippingDate", "Shipping Date"] },
+  { label: "Shipment", raw: ["Shipment", "Courier"] },
+  { label: "PincodeZone", raw: ["PincodeZone", "Pincode Zone", "Zone"] },
+  { label: "Docketno", raw: ["Docketno", "Docket No", "Docket", "AWB"] },
+  { label: "OUR EDD", raw: ["OUR EDD", "Our EDD"] },
+  { label: "PDD", raw: ["PDD"] },
+  { label: "OMS STATUS", raw: ["OMS STATUS", "OMS Status"] },
+  { label: "Current status", raw: ["Current status", "Current Status"] },
+  { label: "Attempts", raw: ["Attempts", "Attempt"] },
+] as const;
+
+type NdrSummaryColumn = (typeof NDR_SUMMARY_COLUMNS)[number];
+
+function readTrackingValue(row: NdrTrackingRecord, column: NdrSummaryColumn) {
+  if ("primary" in column) {
+    return row[column.primary as keyof NdrTrackingRecord];
+  }
+  return findRawValue(row.raw_data || {}, column.raw);
+}
+
+function findRawValue(raw: Record<string, string | number | boolean | null>, labels: readonly string[]) {
+  for (const label of labels) {
+    if (raw[label] !== undefined && raw[label] !== null && raw[label] !== "") {
+      return raw[label];
+    }
+  }
+  const normalized = Object.entries(raw).map(([key, value]) => ({ key, value, clean: normalizeHeader(key) }));
+  for (const label of labels) {
+    const cleanLabel = normalizeHeader(label);
+    const exact = normalized.find((item) => item.clean === cleanLabel);
+    if (exact?.value !== undefined && exact.value !== null && exact.value !== "") return exact.value;
+    const partial = normalized.find((item) => item.clean.includes(cleanLabel) || cleanLabel.includes(item.clean));
+    if (partial?.value !== undefined && partial.value !== null && partial.value !== "") return partial.value;
+  }
+  return null;
+}
+
+function normalizeHeader(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function formatCellValue(value: unknown) {
+  if (value === undefined || value === null || value === "") return "N/A";
+  return String(value);
 }
