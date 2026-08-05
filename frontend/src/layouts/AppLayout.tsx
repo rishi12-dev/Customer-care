@@ -45,8 +45,8 @@ export function AppLayout() {
 
   const links = user?.role === "admin" ? [...customerLinks, ...adminLinks] : customerLinks;
   return (
-    <div className="min-h-screen lg:flex">
-      <aside className="hidden border-r border-border bg-white/85 p-4 backdrop-blur dark:bg-black/20 lg:fixed lg:inset-y-0 lg:block lg:w-72">
+    <div className="min-h-screen">
+      <aside className="hidden">
         <div className="mb-8 flex items-center gap-3">
           <button className="rounded-lg text-left" onClick={() => setPreviewAvatar(true)} title="View profile image">
             <Avatar name={user?.full_name} src={user?.avatar_data_url} />
@@ -65,7 +65,7 @@ export function AppLayout() {
         </nav>
         <button className="mt-6 text-xs font-semibold text-primary" onClick={() => setShowTour(true)}>Open tour</button>
       </aside>
-      <div className="flex-1 lg:pl-72">
+      <div className="flex-1">
         <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-border bg-background/82 px-5 backdrop-blur">
           <div>
             <div className="text-sm text-slate-500">Customer Care Portal</div>
@@ -73,10 +73,10 @@ export function AppLayout() {
           </div>
           <div className="relative flex gap-2">
             <Button aria-label="Toggle theme" className="w-10 px-0 bg-accent" onClick={() => setDark((value) => !value)}><Moon size={18} /></Button>
-            <Button aria-label="Open menu" className="w-10 px-0 lg:hidden" onClick={() => setMobileMenuOpen((value) => !value)}><MoreVertical size={18} /></Button>
+            <Button aria-label="Open menu" className="w-10 px-0" onClick={() => setMobileMenuOpen((value) => !value)}><MoreVertical size={18} /></Button>
             <Button className="hidden bg-slate-900 dark:bg-white dark:text-slate-950 sm:inline-flex" onClick={() => logout().then(() => navigate("/login"))}><LogOut size={18} /> Logout</Button>
             {mobileMenuOpen && (
-              <div className="absolute right-0 top-12 z-30 w-64 rounded-md border border-border bg-background p-2 shadow-xl lg:hidden">
+              <div className="absolute right-0 top-12 z-30 w-64 rounded-md border border-border bg-background p-2 shadow-xl">
                 <div className="mb-2 flex items-center gap-3 border-b border-border p-2 pb-3">
                   <button className="rounded-lg text-left" onClick={() => { setPreviewAvatar(true); setMobileMenuOpen(false); }} title="View profile image">
                     <Avatar name={user?.full_name} src={user?.avatar_data_url} />
