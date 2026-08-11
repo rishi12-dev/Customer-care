@@ -164,10 +164,16 @@ export function NdrDashboardPage() {
         <Card><SectionTitle title="Shipped Order - Zone Analysis" /><PerformanceTable rows={data.zone_performance.slice(0, 8)} label="zone" /></Card>
       </div>
 
-      <Card><SectionTitle title="Pending Order Analysis" /><AgeingTable rows={data.pending_ageing} /></Card>
+      <Card>
+        <SectionHeader title="Pending Order Analysis" onDownload={() => download("/ndr/export/excel", "ndr-pending-order-analysis.xlsx")} />
+        <AgeingTable rows={data.pending_ageing} />
+      </Card>
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <Card><SectionTitle title="Critical Attention Required" /><AlertList alerts={data.alerts} /></Card>
+        <Card>
+          <SectionHeader title="Critical Attention Required" onDownload={() => download("/ndr/export/excel", "ndr-critical-attention.xlsx")} />
+          <AlertList alerts={data.alerts} />
+        </Card>
         <Card><SectionTitle title="Management Insights" /><ul className="grid gap-3 text-sm">{data.insights.map((item) => <li key={item} className="rounded-md border border-border bg-muted/40 p-3">{item}</li>)}</ul></Card>
       </div>
 
@@ -229,6 +235,15 @@ function Kpi({ title, value, percentage, icon: Icon, tone }: { title: string; va
 
 function SectionTitle({ title }: { title: string }) {
   return <h2 className="mb-4 text-lg font-bold">{title}</h2>;
+}
+
+function SectionHeader({ title, onDownload }: { title: string; onDownload: () => void }) {
+  return (
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <h2 className="text-lg font-bold">{title}</h2>
+      <Button className="h-9 bg-accent px-3 text-xs" onClick={onDownload}><FileSpreadsheet size={15} /> Download Excel</Button>
+    </div>
+  );
 }
 
 function BarList({ data }: { data: Array<{ name: string; value: number; percentage: number }> }) {

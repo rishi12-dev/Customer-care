@@ -123,13 +123,17 @@ def _date_window(name: str | None) -> tuple[date | None, date | None]:
 
 
 def _base_orders(db: Session) -> tuple[list[dict], list[str]]:
-    rows = db.query(NdrTrackingRecord.id, NdrTrackingRecord.raw_data).order_by(NdrTrackingRecord.id.asc()).all()
+    rows = (
+        db.query(NdrTrackingRecord.id, NdrTrackingRecord.upload_filename, NdrTrackingRecord.row_number, NdrTrackingRecord.raw_data)
+        .order_by(NdrTrackingRecord.id.asc())
+        .all()
+    )
     if not rows:
         return [], REQUIRED_COLUMNS.copy()
 
     available = set()
-    orders: list[dict] = []
-    for row_id, raw in rows:
+    source_rows: dict[tuple[str, int, str], dict] = {}
+    for row_id, upload_filename, row_number, raw in rows:
         raw = raw or {}
         available.update(raw.keys())
         order_no = _raw_value(raw, "OrderNo")
@@ -143,10 +147,10 @@ def _base_orders(db: Session) -> tuple[list[dict], list[str]]:
             "edd": _parse_date(_raw_value(raw, "OUR EDD")),
             "status": _raw_value(raw, "Current status") or "Unknown",
         }
-        orders.append(item)
+        source_rows[(upload_filename or "", row_number or 0, order_no)] = item
 
     missing = [column for column in REQUIRED_COLUMNS if column not in available]
-    return orders, missing
+    return list(source_rows.values()), missing
 
 
 def _apply_filters(orders: list[dict], params: dict) -> list[dict]:
@@ -414,7 +418,7 @@ def excel_report(db: Session, params: dict | None = None) -> StreamingResponse:
         ("Order Status", ["Status", "Order Count", "Percentage"], [[r["status"], r["count"], r["percentage"]] for r in data.get("status_overview", [])]),
         ("Courier Performance", ["Courier", "Total", "Delivered", "Shipped", "Pending", "EDD Expired", "EDD Remaining", "Delivery %"], [[r["courier"], r["total"], r["delivered"], r["shipped"], r["pending"], r["edd_expired"], r["edd_remaining"], r["delivery_percentage"]] for r in data.get("courier_performance", [])]),
         ("Zone Performance", ["Zone", "Total", "Delivered", "Shipped", "Pending", "EDD Expired", "EDD Remaining"], [[r["zone"], r["total"], r["delivered"], r["shipped"], r["pending"], r["edd_expired"], r["edd_remaining"]] for r in data.get("zone_performance", [])]),
-        ("Pending Ageing", ["Age Bucket", "Total", "Delivered", "Shipped", "Pending", "EDD Expired", "EDD Remaining"], [[r["bucket"], r["total"], r["delivered"], r["shipped"], r["pending"], r["edd_expired"], r["edd_remaining"]] for r in data.get("pending_ageing", [])]),
+        ("Pending Order Analysis", ["Age Bucket", "Total", "Delivered", "Shipped", "Pending", "EDD Expired", "EDD Remaining"], [[r["bucket"], r["total"], r["delivered"], r["shipped"], r["pending"], r["edd_expired"], r["edd_remaining"]] for r in data.get("pending_ageing", [])]),
         ("Critical Attention", ["Level", "Alert"], [[r["level"].title(), r["message"]] for r in data.get("alerts", [])]),
         ("Management Insights", ["Insight"], [[insight] for insight in data.get("insights", [])]),
         ("Pending Orders", ["Order No", "Courier", "Zone", "Current Status", "OUR EDD", "EDD Status", "Pending Days"], [[r["order_no"], r["courier"], r["zone"], r["current_status"], r["our_edd"], r["edd_status"], r["pending_days"]] for r in data.get("pending_orders", [])]),
