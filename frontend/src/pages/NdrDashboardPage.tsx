@@ -51,6 +51,7 @@ type PerformanceRow = {
   total: number;
   delivered: number;
   shipped: number;
+  not_shipped: number;
   pending: number;
   edd_expired: number;
   edd_remaining: number;
@@ -266,7 +267,7 @@ function PerformanceTable({ rows, label }: { rows: Array<PerformanceRow & Record
 }
 
 function AgeingTable({ rows }: { rows: Array<PerformanceRow & { bucket: string }> }) {
-  return <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">{rows.map((row) => <div key={row.bucket} className="rounded-md border border-border bg-muted/30 p-3"><p className="font-bold">{row.bucket}</p><p className="mt-2 text-2xl font-bold">{row.pending.toLocaleString()}</p><p className="text-xs text-slate-500">Pending</p><div className="mt-3 grid gap-1 text-xs"><span>Total: {row.total}</span><span>Delivered: {row.delivered}</span><span>Shipped: {row.shipped}</span><span className="text-red-600">EDD Expired: {row.edd_expired}</span><span>EDD Remaining: {row.edd_remaining}</span></div></div>)}</div>;
+  return <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-6">{rows.map((row) => <div key={row.bucket} className="rounded-md border border-border bg-muted/30 p-3"><p className="font-bold">{row.bucket}</p><p className="mt-2 text-2xl font-bold">{row.total.toLocaleString()}</p><p className="text-xs text-slate-500">ShippingDate range</p><div className="mt-3 grid gap-1 text-xs"><span>Total: {row.total}</span><span>Delivered: {row.delivered}</span><span>Shipped: {row.shipped}</span><span>Not Shipped: {row.not_shipped}</span><span className="text-red-600">EDD Expired: {row.edd_expired}</span><span>EDD Remaining: {row.edd_remaining}</span></div></div>)}</div>;
 }
 
 function AlertList({ alerts }: { alerts: NdrDashboard["alerts"] }) {

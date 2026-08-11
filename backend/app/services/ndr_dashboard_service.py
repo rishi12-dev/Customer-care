@@ -18,12 +18,12 @@ from app.models.entities import NdrTrackingRecord
 
 REQUIRED_COLUMNS = ["OrderNo", "PincodeZone", "Shipment", "OUR EDD", "Current status"]
 AGE_BUCKETS = [
-    ("1-5 Days", 1, 5),
-    ("6-10 Days", 6, 10),
-    ("11-15 Days", 11, 15),
-    ("16-20 Days", 16, 20),
-    ("21-30 Days", 21, 30),
-    ("30+ Days", 31, 99999),
+    ("01-05", 1, 5),
+    ("06-10", 6, 10),
+    ("11-15", 11, 15),
+    ("16-20", 16, 20),
+    ("21-25", 21, 25),
+    ("26-31", 26, 31),
 ]
 
 
@@ -33,6 +33,19 @@ def _raw_value(raw: dict, column: str):
         return None
     cleaned = str(value).strip()
     return cleaned or None
+
+
+def _raw_first(raw: dict, columns: list[str]):
+    for column in columns:
+        value = _raw_value(raw, column)
+        if value:
+            return value
+    normalized = {re.sub(r"[^a-z0-9]", "", key.lower()): value for key, value in raw.items()}
+    for column in columns:
+        value = normalized.get(re.sub(r"[^a-z0-9]", "", column.lower()))
+        if value is not None and str(value).strip():
+            return str(value).strip()
+    return None
 
 
 def _normalize(value: str | None) -> str:
@@ -66,6 +79,10 @@ def _is_delivered(status: str | None) -> bool:
 
 def _is_shipped(status: str | None) -> bool:
     return _status_group(status) == "Shipped / In Transit"
+
+
+def _is_not_shipped(status: str | None) -> bool:
+    return not _is_delivered(status) and not _is_shipped(status)
 
 
 def _parse_date(value) -> date | None:
@@ -144,6 +161,11 @@ def _base_orders(db: Session) -> tuple[list[dict], list[str]]:
             "order_no": order_no,
             "zone": _raw_value(raw, "PincodeZone") or "Unknown",
             "courier": _courier_group(_raw_value(raw, "Shipment")),
+            "warehouse": _raw_first(raw, ["Warehouse", "Store"]) or "Unknown",
+            "shipping_date": _parse_date(_raw_first(raw, ["ShippingDate", "Shipping Date"])),
+            "cx_name": _raw_first(raw, ["Cx Name", "CX Name", "Customer Name", "Customer"]),
+            "mobile_no": _raw_first(raw, ["Mobile No", "Mobile", "Phone"]),
+            "docket_no": _raw_first(raw, ["Docketno", "Docket No", "Docket", "AWB"]),
             "edd": _parse_date(_raw_value(raw, "OUR EDD")),
             "status": _raw_value(raw, "Current status") or "Unknown",
         }
@@ -178,9 +200,10 @@ def _apply_filters(orders: list[dict], params: dict) -> list[dict]:
             continue
         if search and search not in _normalize(order["order_no"]):
             continue
-        if start and (not order["edd"] or order["edd"] < start):
+        filter_date = order.get("shipping_date") or order["edd"]
+        if start and (not filter_date or filter_date < start):
             continue
-        if end and (not order["edd"] or order["edd"] > end):
+        if end and (not filter_date or filter_date > end):
             continue
         current_edd = _edd_status(order, today)
         if edd_status and edd_status != "all" and current_edd != edd_status:
@@ -211,6 +234,7 @@ def _count_group(orders: Iterable[dict]) -> dict:
     total = len(orders)
     delivered = sum(1 for order in orders if _is_delivered(order["status"]))
     shipped = sum(1 for order in orders if _is_shipped(order["status"]))
+    not_shipped = sum(1 for order in orders if _is_not_shipped(order["status"]))
     pending = total - delivered
     edd_expired = sum(1 for order in orders if _edd_status(order, today) == "EDD Expired")
     edd_remaining = sum(1 for order in orders if _edd_status(order, today) == "EDD Remaining")
@@ -218,6 +242,7 @@ def _count_group(orders: Iterable[dict]) -> dict:
         "total": total,
         "delivered": delivered,
         "shipped": shipped,
+        "not_shipped": not_shipped,
         "pending": pending,
         "edd_expired": edd_expired,
         "edd_remaining": edd_remaining,
@@ -242,13 +267,75 @@ def _status_overview(orders: list[dict]) -> list[dict]:
     return [{"status": name, "count": count, "percentage": _pct(count, total)} for name, count in counts.most_common()]
 
 
-def _ageing(orders: list[dict]) -> list[dict]:
-    today = date.today()
-    result = []
+def _shipping_bucket_label(shipping_date: date | None) -> str:
+    if not shipping_date:
+        return "No Shipping Date"
     for label, start, end in AGE_BUCKETS:
-        bucket_orders = [order for order in orders if start <= _pending_days(order, today) <= end]
+        if start <= shipping_date.day <= end:
+            return f"{label} {shipping_date.strftime('%b %Y')}"
+    return f"Other {shipping_date.strftime('%b %Y')}"
+
+
+def _ageing(orders: list[dict]) -> list[dict]:
+    grouped: dict[str, list[dict]] = defaultdict(list)
+    for order in orders:
+        grouped[_shipping_bucket_label(order.get("shipping_date"))].append(order)
+    result = []
+    for label, group_orders in grouped.items():
+        bucket_orders = list(group_orders)
         result.append({"bucket": label, **_count_group(bucket_orders)})
-    return result
+    return sorted(result, key=lambda row: row["bucket"])
+
+
+def _pending_order_analysis_detail(orders: list[dict]) -> list[dict]:
+    grouped: dict[tuple[str, str, str, str], list[dict]] = defaultdict(list)
+    for order in orders:
+        grouped[
+            (
+                _shipping_bucket_label(order.get("shipping_date")),
+                order["courier"] or "Unknown",
+                order.get("warehouse") or "Unknown",
+                order["zone"] or "Unknown",
+            )
+        ].append(order)
+    rows = []
+    for (bucket, courier, warehouse, zone), group_orders in grouped.items():
+        metrics = _count_group(group_orders)
+        rows.append(
+            {
+                "shipping_date_range": bucket,
+                "courier": courier,
+                "warehouse": warehouse,
+                "zone": zone,
+                **metrics,
+            }
+        )
+    return sorted(rows, key=lambda row: (row["shipping_date_range"], row["courier"], row["warehouse"], row["zone"]))
+
+
+def _critical_order_details(orders: list[dict]) -> list[dict]:
+    today = date.today()
+    rows = []
+    for order in orders:
+        if _is_delivered(order["status"]) or _edd_status(order, today) != "EDD Expired":
+            continue
+        rows.append(
+            {
+                "order_no": order["order_no"],
+                "cx_name": order.get("cx_name"),
+                "shipment": order["courier"],
+                "phone_no": order.get("mobile_no"),
+                "docket_no": order.get("docket_no"),
+                "warehouse": order.get("warehouse"),
+                "zone": order["zone"],
+                "shipping_date": order["shipping_date"].isoformat() if order.get("shipping_date") else None,
+                "our_edd": order["edd"].isoformat() if order["edd"] else None,
+                "current_status": order["status"],
+                "edd_status": _edd_status(order, today),
+                "pending_days": _pending_days(order, today),
+            }
+        )
+    return sorted(rows, key=lambda row: (-row["pending_days"], row["order_no"]))
 
 
 def _pending_orders(orders: list[dict]) -> list[dict]:
@@ -264,6 +351,7 @@ def _pending_orders(orders: list[dict]) -> list[dict]:
                 "zone": order["zone"],
                 "current_status": order["status"],
                 "our_edd": order["edd"].isoformat() if order["edd"] else None,
+                "shipping_date": order["shipping_date"].isoformat() if order.get("shipping_date") else None,
                 "edd_status": _edd_status(order, today),
                 "pending_days": _pending_days(order, today),
             }
@@ -283,7 +371,9 @@ def ndr_dashboard(db: Session, params: dict | None = None) -> dict:
     courier = _group_table(filtered, "courier", "courier")
     zone = _group_table(filtered, "zone", "zone")
     ageing = _ageing(filtered)
+    pending_analysis_detail = _pending_order_analysis_detail(filtered)
     pending = _pending_orders(filtered)
+    critical_orders = _critical_order_details(filtered)
     edd = [
         {"name": "EDD Delivered", "value": metrics["delivered"], "percentage": _pct(metrics["delivered"], metrics["total"])},
         {"name": "EDD Remaining", "value": metrics["edd_remaining"], "percentage": _pct(metrics["edd_remaining"], metrics["total"])},
@@ -291,7 +381,7 @@ def ndr_dashboard(db: Session, params: dict | None = None) -> dict:
     ]
     top_courier = courier[0] if courier else None
     top_zone = zone[0] if zone else None
-    critical_30 = next((row for row in ageing if row["bucket"] == "30+ Days"), {"pending": 0})
+    critical_30 = max(ageing, key=lambda row: row["pending"], default={"pending": 0, "bucket": "No Shipping Date"})
     insights = [
         f"Total {metrics['total']:,} NDR rows from the uploaded file are being reviewed, with {metrics['delivered']:,} delivered and {metrics['pending']:,} requiring action.",
         f"{metrics['edd_expired']:,} pending orders have crossed OUR EDD and need immediate follow-up.",
@@ -301,14 +391,14 @@ def ndr_dashboard(db: Session, params: dict | None = None) -> dict:
     if top_zone:
         insights.append(f"{top_zone['zone']} is the highest pending zone with {top_zone['pending']:,} orders.")
     if critical_30["pending"]:
-        insights.append(f"{critical_30['pending']:,} orders are pending in the 30+ day bucket and should be treated as critical.")
+        insights.append(f"{critical_30['bucket']} has {critical_30['pending']:,} pending orders and should be reviewed.")
 
     alerts = []
     if metrics["edd_expired"]:
         alerts.append({"level": "critical", "message": f"{metrics['edd_expired']:,} orders have crossed OUR EDD."})
-    overdue_15 = sum(row["pending"] for row in ageing if row["bucket"] in {"16-20 Days", "21-30 Days", "30+ Days"})
-    if overdue_15:
-        alerts.append({"level": "attention", "message": f"{overdue_15:,} orders are pending for more than 15 days."})
+    not_shipped_count = metrics.get("not_shipped", 0)
+    if not_shipped_count:
+        alerts.append({"level": "attention", "message": f"{not_shipped_count:,} orders are not shipped yet as per Current status."})
     if top_zone:
         alerts.append({"level": "monitor", "message": f"{top_zone['zone']} has the highest pending volume."})
     if top_courier:
@@ -340,8 +430,10 @@ def ndr_dashboard(db: Session, params: dict | None = None) -> dict:
         "courier_performance": courier,
         "zone_performance": zone,
         "pending_ageing": ageing,
+        "pending_order_analysis_detail": pending_analysis_detail,
         "edd_performance": edd,
         "pending_orders": pending,
+        "critical_orders": critical_orders,
         "insights": insights,
         "alerts": alerts,
         "search_result": _search_order(filtered, params.get("order_search")),
@@ -418,10 +510,11 @@ def excel_report(db: Session, params: dict | None = None) -> StreamingResponse:
         ("Order Status", ["Status", "Order Count", "Percentage"], [[r["status"], r["count"], r["percentage"]] for r in data.get("status_overview", [])]),
         ("Courier Performance", ["Courier", "Total", "Delivered", "Shipped", "Pending", "EDD Expired", "EDD Remaining", "Delivery %"], [[r["courier"], r["total"], r["delivered"], r["shipped"], r["pending"], r["edd_expired"], r["edd_remaining"], r["delivery_percentage"]] for r in data.get("courier_performance", [])]),
         ("Zone Performance", ["Zone", "Total", "Delivered", "Shipped", "Pending", "EDD Expired", "EDD Remaining"], [[r["zone"], r["total"], r["delivered"], r["shipped"], r["pending"], r["edd_expired"], r["edd_remaining"]] for r in data.get("zone_performance", [])]),
-        ("Pending Order Analysis", ["Age Bucket", "Total", "Delivered", "Shipped", "Pending", "EDD Expired", "EDD Remaining"], [[r["bucket"], r["total"], r["delivered"], r["shipped"], r["pending"], r["edd_expired"], r["edd_remaining"]] for r in data.get("pending_ageing", [])]),
-        ("Critical Attention", ["Level", "Alert"], [[r["level"].title(), r["message"]] for r in data.get("alerts", [])]),
+        ("Pending Order Analysis", ["Shipping Date Range", "Courier", "Store / Warehouse", "Zone", "Total Orders", "Shipped", "Not Shipped", "Delivered", "Pending", "EDD Expired", "EDD Remaining"], [[r["shipping_date_range"], r["courier"], r["warehouse"], r["zone"], r["total"], r["shipped"], r["not_shipped"], r["delivered"], r["pending"], r["edd_expired"], r["edd_remaining"]] for r in data.get("pending_order_analysis_detail", [])]),
+        ("Critical Attention", ["Order No", "Cx Name", "Shipment", "Phone No", "Docket No", "Store / Warehouse", "Zone", "Shipping Date", "OUR EDD", "Current Status", "EDD Status", "Pending Days"], [[r["order_no"], r["cx_name"], r["shipment"], r["phone_no"], r["docket_no"], r["warehouse"], r["zone"], r["shipping_date"], r["our_edd"], r["current_status"], r["edd_status"], r["pending_days"]] for r in data.get("critical_orders", [])]),
+        ("Critical Summary", ["Level", "Alert"], [[r["level"].title(), r["message"]] for r in data.get("alerts", [])]),
         ("Management Insights", ["Insight"], [[insight] for insight in data.get("insights", [])]),
-        ("Pending Orders", ["Order No", "Courier", "Zone", "Current Status", "OUR EDD", "EDD Status", "Pending Days"], [[r["order_no"], r["courier"], r["zone"], r["current_status"], r["our_edd"], r["edd_status"], r["pending_days"]] for r in data.get("pending_orders", [])]),
+        ("Pending Orders", ["Order No", "Courier", "Zone", "Current Status", "Shipping Date", "OUR EDD", "EDD Status", "Pending Days"], [[r["order_no"], r["courier"], r["zone"], r["current_status"], r["shipping_date"], r["our_edd"], r["edd_status"], r["pending_days"]] for r in data.get("pending_orders", [])]),
     ]
     for title, headers, rows in sheets:
         sheet = wb.create_sheet(title)
