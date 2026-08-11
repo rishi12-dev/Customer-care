@@ -146,7 +146,7 @@ export function NdrDashboardPage() {
       </Card>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
-        <Kpi title="Total Orders" value={data.kpis.total_orders} percentage="Unique OrderNo" icon={Truck} tone="slate" />
+        <Kpi title="Total Orders" value={data.kpis.total_orders} percentage="Uploaded file rows" icon={Truck} tone="slate" />
         <Kpi title="Delivered" value={data.kpis.delivered} percentage={`${data.kpis.delivered_percentage}%`} icon={PackageCheck} tone="green" />
         <Kpi title="Shipped / In Transit" value={data.kpis.shipped} percentage={`${data.kpis.shipped_percentage}%`} icon={TrendingUp} tone="blue" />
         <Kpi title="Pending Orders" value={data.kpis.pending} percentage={`${data.kpis.pending_percentage}%`} icon={AlertTriangle} tone="amber" />

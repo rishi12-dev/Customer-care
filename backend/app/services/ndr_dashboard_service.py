@@ -52,6 +52,14 @@ def _status_group(status: str | None) -> str:
     return "Other Status" if normalized else "Other Status"
 
 
+def _courier_group(courier: str | None) -> str:
+    cleaned = str(courier or "").strip() or "Unknown"
+    normalized = _normalize(cleaned)
+    if "dtdc" in normalized and ("5g" in normalized or "5b" in normalized):
+        return "DTDC"
+    return cleaned
+
+
 def _is_delivered(status: str | None) -> bool:
     return _status_group(status) == "Delivered"
 
@@ -120,7 +128,7 @@ def _base_orders(db: Session) -> tuple[list[dict], list[str]]:
         return [], REQUIRED_COLUMNS.copy()
 
     available = set()
-    latest_by_order: dict[str, dict] = {}
+    orders: list[dict] = []
     for row_id, raw in rows:
         raw = raw or {}
         available.update(raw.keys())
@@ -131,14 +139,14 @@ def _base_orders(db: Session) -> tuple[list[dict], list[str]]:
             "id": row_id,
             "order_no": order_no,
             "zone": _raw_value(raw, "PincodeZone") or "Unknown",
-            "courier": _raw_value(raw, "Shipment") or "Unknown",
+            "courier": _courier_group(_raw_value(raw, "Shipment")),
             "edd": _parse_date(_raw_value(raw, "OUR EDD")),
             "status": _raw_value(raw, "Current status") or "Unknown",
         }
-        latest_by_order[order_no] = item
+        orders.append(item)
 
     missing = [column for column in REQUIRED_COLUMNS if column not in available]
-    return list(latest_by_order.values()), missing
+    return orders, missing
 
 
 def _apply_filters(orders: list[dict], params: dict) -> list[dict]:
@@ -281,7 +289,7 @@ def ndr_dashboard(db: Session, params: dict | None = None) -> dict:
     top_zone = zone[0] if zone else None
     critical_30 = next((row for row in ageing if row["bucket"] == "30+ Days"), {"pending": 0})
     insights = [
-        f"Total {metrics['total']:,} unique NDR orders are being reviewed, with {metrics['delivered']:,} delivered and {metrics['pending']:,} requiring action.",
+        f"Total {metrics['total']:,} NDR rows from the uploaded file are being reviewed, with {metrics['delivered']:,} delivered and {metrics['pending']:,} requiring action.",
         f"{metrics['edd_expired']:,} pending orders have crossed OUR EDD and need immediate follow-up.",
     ]
     if top_courier:
@@ -407,6 +415,8 @@ def excel_report(db: Session, params: dict | None = None) -> StreamingResponse:
         ("Courier Performance", ["Courier", "Total", "Delivered", "Shipped", "Pending", "EDD Expired", "EDD Remaining", "Delivery %"], [[r["courier"], r["total"], r["delivered"], r["shipped"], r["pending"], r["edd_expired"], r["edd_remaining"], r["delivery_percentage"]] for r in data.get("courier_performance", [])]),
         ("Zone Performance", ["Zone", "Total", "Delivered", "Shipped", "Pending", "EDD Expired", "EDD Remaining"], [[r["zone"], r["total"], r["delivered"], r["shipped"], r["pending"], r["edd_expired"], r["edd_remaining"]] for r in data.get("zone_performance", [])]),
         ("Pending Ageing", ["Age Bucket", "Total", "Delivered", "Shipped", "Pending", "EDD Expired", "EDD Remaining"], [[r["bucket"], r["total"], r["delivered"], r["shipped"], r["pending"], r["edd_expired"], r["edd_remaining"]] for r in data.get("pending_ageing", [])]),
+        ("Critical Attention", ["Level", "Alert"], [[r["level"].title(), r["message"]] for r in data.get("alerts", [])]),
+        ("Management Insights", ["Insight"], [[insight] for insight in data.get("insights", [])]),
         ("Pending Orders", ["Order No", "Courier", "Zone", "Current Status", "OUR EDD", "EDD Status", "Pending Days"], [[r["order_no"], r["courier"], r["zone"], r["current_status"], r["our_edd"], r["edd_status"], r["pending_days"]] for r in data.get("pending_orders", [])]),
     ]
     for title, headers, rows in sheets:
