@@ -7,6 +7,7 @@ from app.config.database import get_db
 from app.models.entities import AppSetting, Backup, Order, PincodeService, SearchHistory, UploadHistory, User
 from app.schemas.dto import DashboardResponse, OrderRead, SearchResponse, SettingUpdate
 from app.services.excel_service import restore_backup
+from app.services.ndr_dashboard_service import excel_report, ndr_dashboard, pdf_report
 from app.services.ndr_service import search_tracking_history, tracking_history_for_order
 from app.services.search_service import search_orders
 
@@ -82,6 +83,68 @@ def order_tracking_history(order_id: int, user: User = Depends(current_user), db
 @router.get("/ndr/search")
 def ndr_tracking_search(q: str = Query(min_length=2, max_length=160), user: User = Depends(current_user), db: Session = Depends(get_db)):
     return {"query": q, "results": search_tracking_history(db, q)}
+
+
+@router.get("/ndr/dashboard")
+def ndr_management_dashboard(
+    date_filter: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    courier: str | None = None,
+    zone: str | None = None,
+    status: str | None = None,
+    edd_status: str | None = None,
+    search: str | None = None,
+    order_search: str | None = None,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    return ndr_dashboard(
+        db,
+        {
+            "date_filter": date_filter,
+            "start_date": start_date,
+            "end_date": end_date,
+            "courier": courier,
+            "zone": zone,
+            "status": status,
+            "edd_status": edd_status,
+            "search": search,
+            "order_search": order_search,
+        },
+    )
+
+
+@router.get("/ndr/export/excel")
+def ndr_export_excel(
+    date_filter: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    courier: str | None = None,
+    zone: str | None = None,
+    status: str | None = None,
+    edd_status: str | None = None,
+    search: str | None = None,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    return excel_report(db, {"date_filter": date_filter, "start_date": start_date, "end_date": end_date, "courier": courier, "zone": zone, "status": status, "edd_status": edd_status, "search": search})
+
+
+@router.get("/ndr/export/pdf")
+def ndr_export_pdf(
+    date_filter: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    courier: str | None = None,
+    zone: str | None = None,
+    status: str | None = None,
+    edd_status: str | None = None,
+    search: str | None = None,
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    return pdf_report(db, {"date_filter": date_filter, "start_date": start_date, "end_date": end_date, "courier": courier, "zone": zone, "status": status, "edd_status": edd_status, "search": search})
 
 
 @router.get("/recent-search")

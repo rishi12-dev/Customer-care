@@ -4,6 +4,7 @@ import { ProtectedRoute } from "./middleware/ProtectedRoute";
 import { BackupPage, HistoryPage, SettingsPage, UsersPage } from "./pages/AdminPages";
 import { DashboardPage } from "./pages/DashboardPage";
 import { LoginPage } from "./pages/LoginPage";
+import { NdrDashboardPage } from "./pages/NdrDashboardPage";
 import { PincodePage } from "./pages/PincodePage";
 import { SearchPage } from "./pages/SearchPage";
 import { UploadPage } from "./pages/UploadPage";
@@ -17,6 +18,7 @@ export function App() {
           <Route path="/" element={<Navigate to="/search" replace />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/ndr-dashboard" element={<NdrDashboardPage />} />
           <Route path="/pincode" element={<PincodePage />} />
           <Route element={<ProtectedRoute adminOnly />}>
             <Route path="/upload" element={<UploadPage />} />
