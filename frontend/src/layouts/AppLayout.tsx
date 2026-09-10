@@ -5,13 +5,13 @@ import { Button } from "../components/ui/Button";
 import { useAuth } from "../context/AuthContext";
 import { cn } from "../utils/cn";
 
-const customerLinks = [
+const baseLinks = [
   { to: "/search", label: "Search", icon: Search },
   { to: "/dashboard", label: "Dashboard", icon: BarChart3 },
-  { to: "/ndr-dashboard", label: "NDR Dashboard", icon: Truck },
-  { to: "/pincode", label: "Pincode", icon: MapPin }
 ];
+const shippingLinks = [{ to: "/ndr-dashboard", label: "NDR Dashboard", icon: Truck }];
 const adminLinks = [
+  { to: "/pincode", label: "Pincode", icon: MapPin },
   { to: "/upload", label: "Upload", icon: Upload },
   { to: "/users", label: "Users", icon: Users },
   { to: "/history", label: "History", icon: History },
@@ -44,7 +44,11 @@ export function AppLayout() {
     setShowTour(false);
   }
 
-  const links = user?.role === "admin" ? [...customerLinks, ...adminLinks] : customerLinks;
+  const links = user?.role === "admin"
+    ? [...baseLinks, ...shippingLinks, ...adminLinks]
+    : user?.role === "shipping"
+      ? [...baseLinks, ...shippingLinks]
+      : baseLinks;
   return (
     <div className="min-h-screen">
       <aside className="hidden">
@@ -70,7 +74,7 @@ export function AppLayout() {
         <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-border bg-background/82 px-5 backdrop-blur">
           <div>
             <div className="text-sm text-slate-500">Customer Care Portal</div>
-            <div className="font-semibold">{user?.role === "admin" ? "Admin workspace" : "Search workspace"}</div>
+            <div className="font-semibold">{user?.role === "admin" ? "Admin workspace" : user?.role === "shipping" ? "Shipping workspace" : "Search workspace"}</div>
           </div>
           <div className="relative flex gap-2">
             <Button aria-label="Toggle theme" className="w-10 px-0 bg-accent" onClick={() => setDark((value) => !value)}><Moon size={18} /></Button>
@@ -134,6 +138,7 @@ export function AppLayout() {
               <div className="rounded-md border border-border p-3"><b>Search:</b> order number, docket number, phone, or alternate phone se customer details milenge.</div>
               <div className="rounded-md border border-border p-3"><b>Upload:</b> Step 1 preview checks the Excel. Step 2 old orders replace karke new data save karta hai.</div>
               <div className="rounded-md border border-border p-3"><b>Dashboard:</b> total orders, delivery status, courier wise summary yahan dikhta hai.</div>
+              {user?.role === "shipping" && <div className="rounded-md border border-border p-3"><b>NDR Dashboard:</b> active orders, EDD risk, courier and zone analysis yahan milenge.</div>}
               {user?.role === "admin" && <div className="rounded-md border border-border p-3"><b>Users:</b> new login IDs banao aur profile image add karo.</div>}
             </div>
             <div className="mt-5 flex justify-end">

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, Download, FileSpreadsheet, FileText, PackageCheck, Search, ShieldAlert, TrendingUp, Truck } from "lucide-react";
+import { AlertTriangle, Ban, Download, FileSpreadsheet, FileText, PackageCheck, RotateCcw, Search, ShieldAlert, TrendingUp, Truck } from "lucide-react";
 import { API_URL, api } from "../api/client";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
@@ -11,6 +11,10 @@ type Kpis = {
   total_orders: number;
   delivered: number;
   delivered_percentage: number;
+  cancelled: number;
+  cancelled_percentage: number;
+  refunded: number;
+  refunded_percentage: number;
   shipped: number;
   shipped_percentage: number;
   pending: number;
@@ -146,17 +150,19 @@ export function NdrDashboardPage() {
         )}
       </Card>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Kpi title="Total Orders" value={data.kpis.total_orders} percentage="Uploaded file rows" icon={Truck} tone="slate" />
         <Kpi title="Delivered" value={data.kpis.delivered} percentage={`${data.kpis.delivered_percentage}%`} icon={PackageCheck} tone="green" />
         <Kpi title="Shipped / In Transit" value={data.kpis.shipped} percentage={`${data.kpis.shipped_percentage}%`} icon={TrendingUp} tone="blue" />
-        <Kpi title="Pending Orders" value={data.kpis.pending} percentage={`${data.kpis.pending_percentage}%`} icon={AlertTriangle} tone="amber" />
+        <Kpi title="Action Required" value={data.kpis.pending} percentage={`${data.kpis.pending_percentage}% active orders`} icon={AlertTriangle} tone="amber" />
         <Kpi title="EDD Expired" value={data.kpis.edd_expired} percentage={`${data.kpis.edd_expired_percentage}% of pending`} icon={ShieldAlert} tone="red" />
         <Kpi title="EDD Remaining" value={data.kpis.edd_remaining} percentage={`${data.kpis.edd_remaining_percentage}% of pending`} icon={PackageCheck} tone="cyan" />
+        <Kpi title="Cancelled" value={data.kpis.cancelled} percentage={`${data.kpis.cancelled_percentage}% of total`} icon={Ban} tone="slate" />
+        <Kpi title="Refunded" value={data.kpis.refunded} percentage={`${data.kpis.refunded_percentage}% of total`} icon={RotateCcw} tone="slate" />
       </div>
 
       <div className="grid gap-6 xl:grid-cols-3">
-        <Card className="xl:col-span-2"><SectionTitle title="Order Status Overview" /><BarList data={data.status_overview.map((row) => ({ name: row.status, value: row.count, percentage: row.percentage }))} /></Card>
+        <Card className="xl:col-span-2"><SectionTitle title="Current Status Overview" /><BarList data={data.status_overview.map((row) => ({ name: row.status, value: row.count, percentage: row.percentage }))} /></Card>
         <Card><SectionTitle title="Delivery Performance" /><Donut kpis={data.kpis} /><MiniBars data={data.edd_performance.map((row) => ({ name: row.name, value: row.value, percentage: row.percentage }))} /></Card>
       </div>
 
@@ -197,7 +203,7 @@ export function NdrDashboardPage() {
 
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <SectionTitle title="Pending Orders" />
+          <SectionTitle title="Action Required Orders" />
           <div className="flex flex-wrap gap-2">
             <Input className="w-64" value={pendingSearch} onChange={(event) => { setPendingSearch(event.target.value); setPage(1); }} placeholder="Search pending table" />
             <Button className="bg-accent" onClick={() => download("/ndr/export/excel", "ndr-pending-report.xlsx")}><Download size={16} /> Export</Button>
@@ -205,7 +211,7 @@ export function NdrDashboardPage() {
         </div>
         <PendingTable rows={visiblePending} />
         <div className="mt-4 flex items-center justify-between text-sm text-slate-500">
-          <span>{pendingRows.length.toLocaleString()} pending rows</span>
+          <span>{pendingRows.length.toLocaleString()} active rows</span>
           <div className="flex gap-2">
             <Button className="h-8 px-3" disabled={page <= 1} onClick={() => setPage(page - 1)}>Prev</Button>
             <span className="grid place-items-center px-2">Page {page} / {totalPages}</span>

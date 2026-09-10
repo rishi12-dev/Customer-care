@@ -2,7 +2,7 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func
 from sqlalchemy.orm import Session
-from app.api.dependencies import current_user, require_admin, request_ip
+from app.api.dependencies import current_user, require_admin, require_ndr_dashboard_access, request_ip
 from app.config.database import get_db
 from app.models.entities import AppSetting, Backup, Order, PincodeService, SearchHistory, UploadHistory, User
 from app.schemas.dto import DashboardResponse, OrderRead, SearchResponse, SettingUpdate
@@ -34,7 +34,8 @@ def dashboard(user: User = Depends(current_user), db: Session = Depends(get_db))
     pincode_courier_wise = [{"name": row[0], "value": row[1]} for row in db.query(PincodeService.courier, func.count(PincodeService.id)).group_by(PincodeService.courier).order_by(func.count(PincodeService.id).desc()).limit(10).all()]
     pincode_state_wise = [{"name": row[0] or "Unknown", "value": row[1]} for row in db.query(PincodeService.state, func.count(PincodeService.id)).group_by(PincodeService.state).order_by(func.count(PincodeService.id).desc()).limit(10).all()]
     pincode_warehouse_wise = [{"name": row[0] or "Unknown", "value": row[1]} for row in db.query(PincodeService.warehouse, func.count(PincodeService.id)).group_by(PincodeService.warehouse).order_by(func.count(PincodeService.id).desc()).limit(10).all()]
-    pending = max(total - count_status("Delivered"), 0)
+    terminal_statuses = {"delivered", "cancelled", "canceled", "refunded"}
+    pending = sum(count for status, count in status_counts.items() if status not in terminal_statuses)
     return {
         "total_orders": total,
         "delivered": count_status("Delivered"),
@@ -96,7 +97,7 @@ def ndr_management_dashboard(
     edd_status: str | None = None,
     search: str | None = None,
     order_search: str | None = None,
-    user: User = Depends(current_user),
+    user: User = Depends(require_ndr_dashboard_access),
     db: Session = Depends(get_db),
 ):
     return ndr_dashboard(
@@ -125,7 +126,7 @@ def ndr_export_excel(
     status: str | None = None,
     edd_status: str | None = None,
     search: str | None = None,
-    user: User = Depends(current_user),
+    user: User = Depends(require_ndr_dashboard_access),
     db: Session = Depends(get_db),
 ):
     return excel_report(db, {"date_filter": date_filter, "start_date": start_date, "end_date": end_date, "courier": courier, "zone": zone, "status": status, "edd_status": edd_status, "search": search})
@@ -141,7 +142,7 @@ def ndr_export_pdf(
     status: str | None = None,
     edd_status: str | None = None,
     search: str | None = None,
-    user: User = Depends(current_user),
+    user: User = Depends(require_ndr_dashboard_access),
     db: Session = Depends(get_db),
 ):
     return pdf_report(db, {"date_filter": date_filter, "start_date": start_date, "end_date": end_date, "courier": courier, "zone": zone, "status": status, "edd_status": edd_status, "search": search})

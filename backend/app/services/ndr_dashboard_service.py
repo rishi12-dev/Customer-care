@@ -77,12 +77,29 @@ def _is_delivered(status: str | None) -> bool:
     return _status_group(status) == "Delivered"
 
 
+def _is_cancelled(status: str | None) -> bool:
+    normalized = _normalize(status)
+    return "cancel" in normalized or "canceled" in normalized
+
+
+def _is_refunded(status: str | None) -> bool:
+    return "refund" in _normalize(status)
+
+
+def _is_terminal(status: str | None) -> bool:
+    return _is_delivered(status) or _is_cancelled(status) or _is_refunded(status)
+
+
+def _is_pending(status: str | None) -> bool:
+    return not _is_terminal(status)
+
+
 def _is_shipped(status: str | None) -> bool:
-    return _status_group(status) == "Shipped / In Transit"
+    return _is_pending(status) and _status_group(status) == "Shipped / In Transit"
 
 
 def _is_not_shipped(status: str | None) -> bool:
-    return not _is_delivered(status) and not _is_shipped(status)
+    return _is_pending(status) and not _is_shipped(status)
 
 
 def _parse_date(value) -> date | None:
@@ -216,6 +233,10 @@ def _edd_status(order: dict, today: date | None = None) -> str:
     today = today or date.today()
     if _is_delivered(order["status"]):
         return "Delivered"
+    if _is_cancelled(order["status"]):
+        return "Cancelled"
+    if _is_refunded(order["status"]):
+        return "Refunded"
     if order["edd"] and order["edd"] < today:
         return "EDD Expired"
     return "EDD Remaining"
@@ -223,7 +244,7 @@ def _edd_status(order: dict, today: date | None = None) -> str:
 
 def _pending_days(order: dict, today: date | None = None) -> int:
     today = today or date.today()
-    if _is_delivered(order["status"]) or not order["edd"]:
+    if not _is_pending(order["status"]) or not order["edd"]:
         return 0
     return max((today - order["edd"]).days, 0)
 
@@ -233,14 +254,18 @@ def _count_group(orders: Iterable[dict]) -> dict:
     today = date.today()
     total = len(orders)
     delivered = sum(1 for order in orders if _is_delivered(order["status"]))
+    cancelled = sum(1 for order in orders if _is_cancelled(order["status"]))
+    refunded = sum(1 for order in orders if _is_refunded(order["status"]))
     shipped = sum(1 for order in orders if _is_shipped(order["status"]))
     not_shipped = sum(1 for order in orders if _is_not_shipped(order["status"]))
-    pending = total - delivered
+    pending = sum(1 for order in orders if _is_pending(order["status"]))
     edd_expired = sum(1 for order in orders if _edd_status(order, today) == "EDD Expired")
     edd_remaining = sum(1 for order in orders if _edd_status(order, today) == "EDD Remaining")
     return {
         "total": total,
         "delivered": delivered,
+        "cancelled": cancelled,
+        "refunded": refunded,
         "shipped": shipped,
         "not_shipped": not_shipped,
         "pending": pending,
@@ -263,7 +288,7 @@ def _group_table(orders: list[dict], key: str, label: str) -> list[dict]:
 
 def _status_overview(orders: list[dict]) -> list[dict]:
     total = len(orders)
-    counts = Counter(_status_group(order["status"]) for order in orders)
+    counts = Counter(order["status"] or "Unknown" for order in orders)
     return [{"status": name, "count": count, "percentage": _pct(count, total)} for name, count in counts.most_common()]
 
 
@@ -317,7 +342,7 @@ def _critical_order_details(orders: list[dict]) -> list[dict]:
     today = date.today()
     rows = []
     for order in orders:
-        if _is_delivered(order["status"]) or _edd_status(order, today) != "EDD Expired":
+        if not _is_pending(order["status"]) or _edd_status(order, today) != "EDD Expired":
             continue
         rows.append(
             {
@@ -342,7 +367,7 @@ def _pending_orders(orders: list[dict]) -> list[dict]:
     today = date.today()
     rows = []
     for order in orders:
-        if _is_delivered(order["status"]):
+        if not _is_pending(order["status"]):
             continue
         rows.append(
             {
@@ -416,6 +441,10 @@ def ndr_dashboard(db: Session, params: dict | None = None) -> dict:
             "total_orders": metrics["total"],
             "delivered": metrics["delivered"],
             "delivered_percentage": _pct(metrics["delivered"], metrics["total"]),
+            "cancelled": metrics["cancelled"],
+            "cancelled_percentage": _pct(metrics["cancelled"], metrics["total"]),
+            "refunded": metrics["refunded"],
+            "refunded_percentage": _pct(metrics["refunded"], metrics["total"]),
             "shipped": metrics["shipped"],
             "shipped_percentage": _pct(metrics["shipped"], metrics["total"]),
             "pending": metrics["pending"],
@@ -498,6 +527,8 @@ def excel_report(db: Session, params: dict | None = None) -> StreamingResponse:
             ["Report Date", data.get("report_date")],
             ["Total Orders", kpis.get("total_orders", 0)],
             ["Delivered", kpis.get("delivered", 0)],
+            ["Cancelled", kpis.get("cancelled", 0)],
+            ["Refunded", kpis.get("refunded", 0)],
             ["Shipped", kpis.get("shipped", 0)],
             ["Pending", kpis.get("pending", 0)],
             ["EDD Expired", kpis.get("edd_expired", 0)],
@@ -544,6 +575,8 @@ def pdf_report(db: Session, params: dict | None = None) -> StreamingResponse:
         "",
         f"Total Orders: {kpis.get('total_orders', 0):,}",
         f"Delivered: {kpis.get('delivered', 0):,} ({kpis.get('delivered_percentage', 0)}%)",
+        f"Cancelled: {kpis.get('cancelled', 0):,} ({kpis.get('cancelled_percentage', 0)}%)",
+        f"Refunded: {kpis.get('refunded', 0):,} ({kpis.get('refunded_percentage', 0)}%)",
         f"Shipped / In Transit: {kpis.get('shipped', 0):,} ({kpis.get('shipped_percentage', 0)}%)",
         f"Pending Orders: {kpis.get('pending', 0):,} ({kpis.get('pending_percentage', 0)}%)",
         f"EDD Expired: {kpis.get('edd_expired', 0):,}",

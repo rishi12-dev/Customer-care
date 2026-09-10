@@ -33,6 +33,12 @@ def require_admin(user: User = Depends(current_user)) -> User:
     return user
 
 
+def require_ndr_dashboard_access(user: User = Depends(current_user)) -> User:
+    if user.role not in {UserRole.admin, UserRole.shipping}:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="NDR dashboard access required")
+    return user
+
+
 def request_ip(request: Request) -> str | None:
     forwarded = request.headers.get("x-forwarded-for")
     return forwarded.split(",")[0].strip() if forwarded else (request.client.host if request.client else None)

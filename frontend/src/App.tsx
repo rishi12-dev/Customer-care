@@ -18,8 +18,10 @@ export function App() {
           <Route path="/" element={<Navigate to="/search" replace />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/ndr-dashboard" element={<NdrDashboardPage />} />
           <Route path="/pincode" element={<PincodePage />} />
+          <Route element={<ProtectedRoute allowedRoles={["admin", "shipping"]} />}>
+            <Route path="/ndr-dashboard" element={<NdrDashboardPage />} />
+          </Route>
           <Route element={<ProtectedRoute adminOnly />}>
             <Route path="/upload" element={<UploadPage />} />
             <Route path="/users" element={<UsersPage />} />

@@ -8,6 +8,9 @@ from app.utils.security import hash_password
 
 def create_schema() -> None:
     Base.metadata.create_all(bind=engine)
+    if engine.dialect.name == "postgresql":
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TYPE userrole ADD VALUE IF NOT EXISTS 'shipping'"))
     columns = {column["name"] for column in inspect(engine).get_columns("users")}
     if "avatar_data_url" not in columns:
         with engine.begin() as connection:
