@@ -15,6 +15,8 @@ type Kpis = {
   cancelled_percentage: number;
   refunded: number;
   refunded_percentage: number;
+  pre_shipment: number;
+  pre_shipment_percentage: number;
   shipped: number;
   shipped_percentage: number;
   pending: number;
@@ -176,7 +178,7 @@ export function NdrDashboardPage() {
           <Select label="Courier" value={filters.courier} onChange={(value) => setFilters({ ...filters, courier: value })} options={[["all", "All Couriers"], ...data.filters.couriers.map((item) => [item, item])]} />
           <Select label="Zone" value={filters.zone} onChange={(value) => setFilters({ ...filters, zone: value })} options={[["all", "All Zones"], ...data.filters.zones.map((item) => [item, item])]} />
           <Select label="Status" value={filters.status} onChange={(value) => setFilters({ ...filters, status: value })} options={[["all", "All Status"], ...data.filters.statuses.map((item) => [item, item])]} />
-          <Select label="EDD" value={filters.edd_status} onChange={(value) => setFilters({ ...filters, edd_status: value })} options={[["all", "All EDD"], ["EDD Expired", "EDD Expired"], ["EDD Remaining", "EDD Remaining"], ["Delivered", "Delivered"]]} />
+          <Select label="EDD" value={filters.edd_status} onChange={(value) => setFilters({ ...filters, edd_status: value })} options={[["all", "All EDD"], ["Not Shipped", "Not Shipped"], ["EDD Expired", "EDD Expired"], ["EDD Remaining", "EDD Remaining"], ["Delivered", "Delivered"]]} />
         </div>
         {filters.date_filter === "custom" && (
           <div className="mt-3 grid gap-3 md:grid-cols-2">
@@ -193,6 +195,7 @@ export function NdrDashboardPage() {
         <Kpi title="Action Required" value={data.kpis.pending} percentage={`${data.kpis.pending_percentage}% active orders`} icon={AlertTriangle} tone="amber" />
         <Kpi title="EDD Expired" value={data.kpis.edd_expired} percentage={`${data.kpis.edd_expired_percentage}% of pending`} icon={ShieldAlert} tone="red" />
         <Kpi title="EDD Remaining" value={data.kpis.edd_remaining} percentage={`${data.kpis.edd_remaining_percentage}% of pending`} icon={PackageCheck} tone="cyan" />
+        <Kpi title="Not Shipped" value={data.kpis.pre_shipment} percentage="Pending, packed or in progress" icon={Truck} tone="slate" />
         <Kpi title="Cancelled" value={data.kpis.cancelled} percentage={`${data.kpis.cancelled_percentage}% of total`} icon={Ban} tone="slate" />
         <Kpi title="Refunded" value={data.kpis.refunded} percentage={`${data.kpis.refunded_percentage}% of total`} icon={RotateCcw} tone="slate" />
       </div>

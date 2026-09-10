@@ -94,6 +94,11 @@ def _is_pending(status: str | None) -> bool:
     return not _is_terminal(status)
 
 
+def _is_pre_shipment(status: str | None) -> bool:
+    normalized = _normalize(status)
+    return bool(re.search(r"\b(pending|packed|in[ -]?progress|processing)\b", normalized))
+
+
 def _is_shipped(status: str | None) -> bool:
     return _is_pending(status) and _status_group(status) == "Shipped / In Transit"
 
@@ -237,6 +242,8 @@ def _edd_status(order: dict, today: date | None = None) -> str:
         return "Cancelled"
     if _is_refunded(order["status"]):
         return "Refunded"
+    if _is_pre_shipment(order["status"]):
+        return "Not Shipped"
     if order["edd"] and order["edd"] < today:
         return "EDD Expired"
     return "EDD Remaining"
@@ -244,7 +251,7 @@ def _edd_status(order: dict, today: date | None = None) -> str:
 
 def _pending_days(order: dict, today: date | None = None) -> int:
     today = today or date.today()
-    if not _is_pending(order["status"]) or not order["edd"]:
+    if not _is_pending(order["status"]) or _is_pre_shipment(order["status"]) or not order["edd"]:
         return 0
     return max((today - order["edd"]).days, 0)
 
@@ -256,6 +263,7 @@ def _count_group(orders: Iterable[dict]) -> dict:
     delivered = sum(1 for order in orders if _is_delivered(order["status"]))
     cancelled = sum(1 for order in orders if _is_cancelled(order["status"]))
     refunded = sum(1 for order in orders if _is_refunded(order["status"]))
+    pre_shipment = sum(1 for order in orders if _is_pre_shipment(order["status"]))
     shipped = sum(1 for order in orders if _is_shipped(order["status"]))
     not_shipped = sum(1 for order in orders if _is_not_shipped(order["status"]))
     pending = sum(1 for order in orders if _is_pending(order["status"]))
@@ -266,6 +274,7 @@ def _count_group(orders: Iterable[dict]) -> dict:
         "delivered": delivered,
         "cancelled": cancelled,
         "refunded": refunded,
+        "pre_shipment": pre_shipment,
         "shipped": shipped,
         "not_shipped": not_shipped,
         "pending": pending,
@@ -473,6 +482,7 @@ def ndr_dashboard(db: Session, params: dict | None = None) -> dict:
     command_center = _command_center(metrics, courier_scorecards, warehouse_scorecards, priority_actions)
     edd = [
         {"name": "EDD Delivered", "value": metrics["delivered"], "percentage": _pct(metrics["delivered"], metrics["total"])},
+        {"name": "Not Shipped", "value": metrics["pre_shipment"], "percentage": _pct(metrics["pre_shipment"], metrics["total"])},
         {"name": "EDD Remaining", "value": metrics["edd_remaining"], "percentage": _pct(metrics["edd_remaining"], metrics["total"])},
         {"name": "EDD Expired", "value": metrics["edd_expired"], "percentage": _pct(metrics["edd_expired"], metrics["total"])},
     ]
@@ -517,6 +527,8 @@ def ndr_dashboard(db: Session, params: dict | None = None) -> dict:
             "cancelled_percentage": _pct(metrics["cancelled"], metrics["total"]),
             "refunded": metrics["refunded"],
             "refunded_percentage": _pct(metrics["refunded"], metrics["total"]),
+            "pre_shipment": metrics["pre_shipment"],
+            "pre_shipment_percentage": _pct(metrics["pre_shipment"], metrics["total"]),
             "shipped": metrics["shipped"],
             "shipped_percentage": _pct(metrics["shipped"], metrics["total"]),
             "pending": metrics["pending"],
