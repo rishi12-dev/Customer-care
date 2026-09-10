@@ -104,7 +104,7 @@ export function AppLayout() {
             )}
           </div>
         </header>
-        <main className="p-5 lg:p-8"><Outlet /></main>
+        <main className="min-w-0 overflow-x-hidden p-5 lg:p-8"><Outlet /></main>
         <footer className="px-5 pb-6 text-center text-xs font-semibold tracking-wide text-slate-500 lg:px-8">MADE BY RISHI & MOMO ❤️</footer>
       </div>
       {showWelcome && (

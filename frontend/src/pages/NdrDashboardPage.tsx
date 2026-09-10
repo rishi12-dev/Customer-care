@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, Ban, Download, FileSpreadsheet, FileText, PackageCheck, RotateCcw, Search, ShieldAlert, TrendingUp, Truck } from "lucide-react";
+import { AlertTriangle, Ban, Building2, Download, FileSpreadsheet, FileText, Gauge, ListChecks, PackageCheck, RotateCcw, Search, ShieldAlert, TrendingUp, Truck } from "lucide-react";
 import { API_URL, api } from "../api/client";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
@@ -35,6 +35,16 @@ type NdrDashboard = {
   status_overview: Array<{ status: string; count: number; percentage: number }>;
   courier_performance: Array<PerformanceRow & { courier: string }>;
   zone_performance: Array<PerformanceRow & { zone: string }>;
+  courier_scorecards: ScorecardRow[];
+  warehouse_scorecards: ScorecardRow[];
+  command_center: {
+    health_score: number;
+    health_label: string;
+    health_tone: "green" | "amber" | "red";
+    priority_actions: PriorityAction[];
+    highest_risk_warehouse: ScorecardRow | null;
+    highest_risk_courier: ScorecardRow | null;
+  };
   pending_ageing: Array<PerformanceRow & { bucket: string }>;
   edd_performance: Array<{ name: string; value: number; percentage: number }>;
   pending_orders: PendingOrder[];
@@ -60,6 +70,20 @@ type PerformanceRow = {
   edd_expired: number;
   edd_remaining: number;
   delivery_percentage: number;
+};
+
+type ScorecardRow = PerformanceRow & { health_score: number; courier?: string; warehouse?: string };
+
+type PriorityAction = {
+  priority: "Critical" | "High" | "Medium";
+  reason: string;
+  order_no: string;
+  courier: string;
+  warehouse: string;
+  zone: string;
+  current_status: string;
+  our_edd: string | null;
+  pending_days: number;
 };
 
 type PendingOrder = {
@@ -127,11 +151,23 @@ export function NdrDashboardPage() {
             <p className="mt-2 max-w-3xl text-sm text-slate-300">Executive view based only on uploaded NDR Excel columns: OrderNo, PincodeZone, Shipment, OUR EDD, Current status.</p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <Button className="bg-emerald-600" onClick={() => download("/ndr/export/md-report", "md-logistics-report.xlsx")}><Gauge size={17} /> MD Report</Button>
             <Button className="bg-white text-slate-950" onClick={() => download("/ndr/export/excel", "ndr-management-report.xlsx")}><FileSpreadsheet size={17} /> Download Excel</Button>
             <Button className="bg-sky-500" onClick={() => download("/ndr/export/pdf", "ndr-management-report.pdf")}><FileText size={17} /> Download PDF</Button>
           </div>
         </div>
         <div className="mt-6 text-sm text-slate-300">Report Date: {data.report_date}</div>
+      </Card>
+
+      <Card className="overflow-hidden border-slate-300 bg-slate-950 text-white dark:border-slate-700">
+        <div className="grid gap-6 lg:grid-cols-[auto_1fr] lg:items-center">
+          <HealthScore score={data.command_center.health_score} label={data.command_center.health_label} tone={data.command_center.health_tone} />
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <CommandMetric label="Priority actions" value={data.command_center.priority_actions.length} detail="Orders needing an immediate owner" icon={ListChecks} />
+            <CommandMetric label="Highest courier risk" value={data.command_center.highest_risk_courier?.courier ?? "N/A"} detail={data.command_center.highest_risk_courier ? `${data.command_center.highest_risk_courier.health_score}/100 health score` : "No active courier data"} icon={Truck} />
+            <CommandMetric label="Highest warehouse risk" value={data.command_center.highest_risk_warehouse?.warehouse ?? "N/A"} detail={data.command_center.highest_risk_warehouse ? `${data.command_center.highest_risk_warehouse.edd_expired} EDD expired` : "No active warehouse data"} icon={Building2} />
+          </div>
+        </div>
       </Card>
 
       <Card>
@@ -170,6 +206,19 @@ export function NdrDashboardPage() {
         <Card><SectionTitle title="Courier Performance" /><PerformanceTable rows={data.courier_performance.slice(0, 8)} label="courier" /></Card>
         <Card><SectionTitle title="Shipped Order - Zone Analysis" /><PerformanceTable rows={data.zone_performance.slice(0, 8)} label="zone" /></Card>
       </div>
+
+      <div className="grid gap-6 xl:grid-cols-2">
+        <Card><SectionTitle title="Courier Scorecard" /><ScorecardTable rows={data.courier_scorecards.slice(0, 8)} label="courier" /></Card>
+        <Card><SectionTitle title="Warehouse Risk View" /><ScorecardTable rows={data.warehouse_scorecards.slice(0, 8)} label="warehouse" /></Card>
+      </div>
+
+      <Card className="overflow-hidden p-0">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-5">
+          <div><SectionTitle title="Priority Action Queue" /><p className="-mt-3 text-sm text-slate-500">EDD breaches and orders that need a decision today.</p></div>
+          <Button className="bg-emerald-600" onClick={() => download("/ndr/export/md-report", "md-logistics-report.xlsx")}><Download size={16} /> Download MD Report</Button>
+        </div>
+        <PriorityActionTable rows={data.command_center.priority_actions} />
+      </Card>
 
       <Card>
         <SectionHeader title="Pending Order Analysis" onDownload={() => download("/ndr/export/excel", "ndr-pending-order-analysis.xlsx")} />
@@ -235,6 +284,15 @@ function Select({ label, value, options, onChange }: { label: string; value: str
   return <label className="grid gap-1 text-xs font-semibold text-slate-500">{label}<select className="h-10 rounded-md border border-border bg-white px-3 text-sm text-foreground outline-none dark:bg-muted" value={value} onChange={(event) => onChange(event.target.value)}>{options.map(([optionValue, text]) => <option key={optionValue} value={optionValue}>{text}</option>)}</select></label>;
 }
 
+function HealthScore({ score, label, tone }: { score: number; label: string; tone: "green" | "amber" | "red" }) {
+  const colors = { green: "#10b981", amber: "#f59e0b", red: "#ef4444" };
+  return <div className="mx-auto grid h-40 w-40 place-items-center rounded-full" style={{ background: `conic-gradient(${colors[tone]} 0 ${score}%, rgba(255,255,255,.14) ${score}% 100%)` }}><div className="grid h-28 w-28 place-items-center rounded-full bg-slate-950 text-center"><div><p className="text-4xl font-black">{score}</p><p className="text-xs font-semibold uppercase tracking-wide text-slate-300">Health score</p><p className="mt-1 text-xs text-slate-400">{label}</p></div></div></div>;
+}
+
+function CommandMetric({ label, value, detail, icon: Icon }: { label: string; value: string | number; detail: string; icon: typeof Truck }) {
+  return <div className="min-w-0 rounded-md border border-white/15 bg-white/5 p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</p><p className="mt-2 break-words text-lg font-bold">{value}</p><p className="mt-1 text-xs text-slate-400">{detail}</p></div><Icon className="shrink-0 text-sky-300" size={20} /></div></div>;
+}
+
 function Kpi({ title, value, percentage, icon: Icon, tone }: { title: string; value: number; percentage: string; icon: typeof Truck; tone: "slate" | "green" | "blue" | "amber" | "red" | "cyan" }) {
   const tones = { slate: "bg-slate-100 text-slate-700", green: "bg-emerald-100 text-emerald-700", blue: "bg-blue-100 text-blue-700", amber: "bg-amber-100 text-amber-700", red: "bg-red-100 text-red-700", cyan: "bg-cyan-100 text-cyan-700" };
   return <Card className="p-4"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase text-slate-500">{title}</p><p className="mt-2 text-2xl font-bold">{value.toLocaleString()}</p><p className="mt-1 text-xs text-slate-500">{percentage}</p></div><div className={cn("grid h-10 w-10 place-items-center rounded-md", tones[tone])}><Icon size={19} /></div></div></Card>;
@@ -270,6 +328,16 @@ function Donut({ kpis }: { kpis: Kpis }) {
 
 function PerformanceTable({ rows, label }: { rows: Array<PerformanceRow & Record<string, string | number>>; label: "courier" | "zone" }) {
   return <div className="overflow-hidden rounded-md border border-border"><table className="w-full text-left text-xs"><thead className="bg-muted"><tr><th className="p-2">{label === "courier" ? "Courier" : "Zone"}</th><th className="p-2">Total</th><th className="p-2">Delivered</th><th className="p-2">Shipped</th><th className="p-2">Pending</th><th className="p-2">EDD Expired</th><th className="p-2">Delivery %</th></tr></thead><tbody>{rows.map((row) => <tr key={String(row[label])} className="border-t border-border"><td className="p-2 font-semibold">{String(row[label])}</td><td className="p-2">{row.total}</td><td className="p-2">{row.delivered}</td><td className="p-2">{row.shipped}</td><td className="p-2">{row.pending}</td><td className="p-2 text-red-600">{row.edd_expired}</td><td className="p-2">{row.delivery_percentage}%</td></tr>)}</tbody></table></div>;
+}
+
+function ScorecardTable({ rows, label }: { rows: ScorecardRow[]; label: "courier" | "warehouse" }) {
+  return <div className="overflow-x-auto rounded-md border border-border"><table className="min-w-[620px] w-full text-left text-xs"><thead className="bg-muted"><tr><th className="p-2">{label === "courier" ? "Courier" : "Warehouse"}</th><th className="p-2">Health</th><th className="p-2">Total</th><th className="p-2">Action</th><th className="p-2">EDD Expired</th><th className="p-2">Not Shipped</th><th className="p-2">Delivered</th></tr></thead><tbody>{rows.map((row) => { const name = label === "courier" ? row.courier : row.warehouse; return <tr key={name} className="border-t border-border"><td className="max-w-[160px] break-words p-2 font-semibold">{name ?? "Unknown"}</td><td className="p-2"><span className={cn("rounded-md px-2 py-1 font-bold", row.health_score >= 80 ? "bg-emerald-100 text-emerald-700" : row.health_score >= 55 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700")}>{row.health_score}/100</span></td><td className="p-2">{row.total}</td><td className="p-2">{row.pending}</td><td className="p-2 text-red-600">{row.edd_expired}</td><td className="p-2">{row.not_shipped}</td><td className="p-2">{row.delivery_percentage}%</td></tr>; })}</tbody></table></div>;
+}
+
+function PriorityActionTable({ rows }: { rows: PriorityAction[] }) {
+  if (!rows.length) return <div className="p-5 text-sm text-slate-500">No immediate action items for the selected filters.</div>;
+  const tones = { Critical: "bg-red-100 text-red-700", High: "bg-amber-100 text-amber-700", Medium: "bg-sky-100 text-sky-700" };
+  return <div className="overflow-x-auto"><table className="min-w-[820px] w-full text-left text-xs"><thead className="bg-muted"><tr>{["Priority", "Order No", "Reason", "Courier", "Warehouse", "Zone", "Current Status", "OUR EDD", "Days"].map((header) => <th className="p-3" key={header}>{header}</th>)}</tr></thead><tbody>{rows.map((row) => <tr key={`${row.order_no}-${row.reason}`} className="border-t border-border align-top"><td className="p-3"><span className={cn("rounded-md px-2 py-1 font-bold", tones[row.priority])}>{row.priority}</span></td><td className="p-3 font-semibold">{row.order_no}</td><td className="p-3">{row.reason}</td><td className="p-3">{row.courier}</td><td className="p-3">{row.warehouse}</td><td className="p-3">{row.zone}</td><td className="p-3">{row.current_status}</td><td className="p-3">{row.our_edd ?? "N/A"}</td><td className="p-3">{row.pending_days}</td></tr>)}</tbody></table></div>;
 }
 
 function AgeingTable({ rows }: { rows: Array<PerformanceRow & { bucket: string }> }) {

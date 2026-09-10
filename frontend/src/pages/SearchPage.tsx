@@ -112,7 +112,7 @@ export function SearchPage() {
   }
 
   return (
-    <section className="grid gap-6">
+    <section className="grid min-w-0 gap-6">
       <div className="grid gap-4 xl:grid-cols-2">
         <Card>
           <form className="flex flex-col gap-3 sm:flex-row" onSubmit={submit} noValidate>
@@ -178,21 +178,21 @@ export function SearchPage() {
       )}
       <div className={busy ? "hidden" : "grid gap-4"}>
         {orders.map((order) => (
-          <Card key={order.id} className="grid select-none gap-4 xl:grid-cols-3">
-            <div>
+          <Card key={order.id} className="grid min-w-0 select-none gap-4 xl:grid-cols-3">
+            <div className="min-w-0">
               <h2 className="font-semibold">Customer</h2>
-              <p className="mt-2 text-lg">{order.customer_name}</p>
-              <p className="text-sm text-slate-500">{order.customer_phone_number}</p>
-              <p className="text-sm text-slate-500">{order.alt_no ?? "No alternate number"}</p>
+              <p className="mt-2 break-words text-lg">{order.customer_name}</p>
+              <p className="break-words text-sm text-slate-500">{order.customer_phone_number}</p>
+              <p className="break-words text-sm text-slate-500">{order.alt_no ?? "No alternate number"}</p>
             </div>
-            <div>
+            <div className="min-w-0">
               <h2 className="font-semibold">Shipment</h2>
-              <p className="mt-2">{order.order_no}</p>
-              <p className="text-sm text-slate-500">{order.shipment} - {order.docket_number}</p>
+              <p className="mt-2 break-words">{order.order_no}</p>
+              <p className="break-words text-sm text-slate-500">{order.shipment} - {order.docket_number}</p>
               <div className="mt-3"><StatusBadge status={order.current_status} /></div>
-              <p className="mt-2 text-sm">Expected: {order.expected_delivery ?? "N/A"} - Delivered: {order.delivery_date ?? "N/A"}</p>
+              <p className="mt-2 break-words text-sm">Expected: {order.expected_delivery ?? "N/A"} - Delivered: {order.delivery_date ?? "N/A"}</p>
             </div>
-            <div>
+            <div className="min-w-0">
               <h2 className="font-semibold">Tracking</h2>
               <p className="mt-2 min-h-12 text-sm text-slate-600 dark:text-slate-300">{order.remark ?? "No remark recorded"}</p>
               <div className="mt-4 flex flex-wrap gap-2 no-print">
@@ -255,8 +255,8 @@ function TrackingHistoryTable({ rows }: { rows: NdrTrackingRecord[] }) {
   const [actionMenuId, setActionMenuId] = useState<number | null>(null);
 
   return (
-    <div className="mt-4 overflow-hidden rounded-md border border-border">
-      <div className="overflow-hidden">
+    <div className="mt-4 max-w-full overflow-x-auto rounded-md border border-border">
+      <div className="min-w-[720px]">
         <table className="w-full table-fixed text-left text-[11px] xl:text-xs">
           <thead className="bg-muted">
             <tr>

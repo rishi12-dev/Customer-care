@@ -286,6 +286,21 @@ def _group_table(orders: list[dict], key: str, label: str) -> list[dict]:
     return sorted(table, key=lambda row: row["pending"], reverse=True)
 
 
+def _performance_score(metrics: dict) -> int:
+    total = metrics["total"]
+    if not total:
+        return 0
+    delivery = metrics["delivery_percentage"]
+    shipped = _pct(metrics["shipped"], total)
+    edd_safe = 100 - _pct(metrics["edd_expired"], total)
+    dispatch_safe = 100 - _pct(metrics["not_shipped"], total)
+    return round(max(0, min(100, (delivery * 0.55) + (shipped * 0.2) + (edd_safe * 0.15) + (dispatch_safe * 0.1))))
+
+
+def _with_score(rows: list[dict]) -> list[dict]:
+    return sorted(({**row, "health_score": _performance_score(row)} for row in rows), key=lambda row: (-row["health_score"], -row["total"]))
+
+
 def _status_overview(orders: list[dict]) -> list[dict]:
     total = len(orders)
     counts = Counter(order["status"] or "Unknown" for order in orders)
@@ -384,6 +399,58 @@ def _pending_orders(orders: list[dict]) -> list[dict]:
     return sorted(rows, key=lambda row: (row["edd_status"] != "EDD Expired", -row["pending_days"], row["order_no"]))
 
 
+def _priority_actions(orders: list[dict]) -> list[dict]:
+    today = date.today()
+    actions = []
+    for order in orders:
+        if not _is_pending(order["status"]):
+            continue
+        edd_status = _edd_status(order, today)
+        if edd_status == "EDD Expired":
+            priority, reason = "Critical", "OUR EDD crossed"
+        elif _is_not_shipped(order["status"]):
+            priority, reason = "High", "Not shipped as per Current status"
+        elif _pending_days(order, today) >= 3:
+            priority, reason = "Medium", "No closure after EDD"
+        else:
+            continue
+        actions.append(
+            {
+                "priority": priority,
+                "reason": reason,
+                "order_no": order["order_no"],
+                "courier": order["courier"],
+                "warehouse": order.get("warehouse") or "Unknown",
+                "zone": order["zone"],
+                "current_status": order["status"],
+                "our_edd": order["edd"].isoformat() if order["edd"] else None,
+                "pending_days": _pending_days(order, today),
+            }
+        )
+    priority_rank = {"Critical": 0, "High": 1, "Medium": 2}
+    return sorted(actions, key=lambda row: (priority_rank[row["priority"]], -row["pending_days"], row["order_no"]))[:12]
+
+
+def _command_center(metrics: dict, courier_rows: list[dict], warehouse_rows: list[dict], actions: list[dict]) -> dict:
+    health_score = _performance_score(metrics)
+    if health_score >= 80:
+        health_label, health_tone = "Healthy", "green"
+    elif health_score >= 55:
+        health_label, health_tone = "Needs Attention", "amber"
+    else:
+        health_label, health_tone = "At Risk", "red"
+    highest_risk_warehouse = max(warehouse_rows, key=lambda row: (row["edd_expired"], row["pending"]), default=None)
+    highest_risk_courier = min(courier_rows, key=lambda row: row["health_score"], default=None)
+    return {
+        "health_score": health_score,
+        "health_label": health_label,
+        "health_tone": health_tone,
+        "priority_actions": actions,
+        "highest_risk_warehouse": highest_risk_warehouse,
+        "highest_risk_courier": highest_risk_courier,
+    }
+
+
 def ndr_dashboard(db: Session, params: dict | None = None) -> dict:
     params = params or {}
     orders, missing = _base_orders(db)
@@ -395,10 +462,15 @@ def ndr_dashboard(db: Session, params: dict | None = None) -> dict:
     status = _status_overview(filtered)
     courier = _group_table(filtered, "courier", "courier")
     zone = _group_table(filtered, "zone", "zone")
+    warehouse = _group_table(filtered, "warehouse", "warehouse")
+    courier_scorecards = _with_score(courier)
+    warehouse_scorecards = _with_score(warehouse)
     ageing = _ageing(filtered)
     pending_analysis_detail = _pending_order_analysis_detail(filtered)
     pending = _pending_orders(filtered)
     critical_orders = _critical_order_details(filtered)
+    priority_actions = _priority_actions(filtered)
+    command_center = _command_center(metrics, courier_scorecards, warehouse_scorecards, priority_actions)
     edd = [
         {"name": "EDD Delivered", "value": metrics["delivered"], "percentage": _pct(metrics["delivered"], metrics["total"])},
         {"name": "EDD Remaining", "value": metrics["edd_remaining"], "percentage": _pct(metrics["edd_remaining"], metrics["total"])},
@@ -458,6 +530,9 @@ def ndr_dashboard(db: Session, params: dict | None = None) -> dict:
         "status_overview": status,
         "courier_performance": courier,
         "zone_performance": zone,
+        "courier_scorecards": courier_scorecards,
+        "warehouse_scorecards": warehouse_scorecards,
+        "command_center": command_center,
         "pending_ageing": ageing,
         "pending_order_analysis_detail": pending_analysis_detail,
         "edd_performance": edd,
@@ -559,6 +634,50 @@ def excel_report(db: Session, params: dict | None = None) -> StreamingResponse:
         output,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": 'attachment; filename="ndr-management-report.xlsx"'},
+    )
+
+
+def md_excel_report(db: Session, params: dict | None = None) -> StreamingResponse:
+    data = ndr_dashboard(db, params)
+    wb = Workbook()
+    summary = wb.active
+    summary.title = "MD Summary"
+    kpis = data.get("kpis", {})
+    command = data.get("command_center", {})
+    _append_table(
+        summary,
+        "Executive Logistics Command Center",
+        ["Metric", "Value"],
+        [
+            ["Report Date", data.get("report_date")],
+            ["Operational Health Score", f"{command.get('health_score', 0)}/100 - {command.get('health_label', 'N/A')}"],
+            ["Total Orders", kpis.get("total_orders", 0)],
+            ["Delivered", kpis.get("delivered", 0)],
+            ["Action Required", kpis.get("pending", 0)],
+            ["EDD Expired", kpis.get("edd_expired", 0)],
+            ["Not Shipped", sum(row.get("not_shipped", 0) for row in data.get("warehouse_scorecards", []))],
+            ["Cancelled", kpis.get("cancelled", 0)],
+            ["Refunded", kpis.get("refunded", 0)],
+        ],
+        1,
+    )
+    sheets = [
+        ("Courier Scorecard", ["Courier", "Health Score", "Total", "Delivered", "Shipped", "Action Required", "EDD Expired", "Not Shipped", "Delivery %"], [[r["courier"], r["health_score"], r["total"], r["delivered"], r["shipped"], r["pending"], r["edd_expired"], r["not_shipped"], r["delivery_percentage"]] for r in data.get("courier_scorecards", [])]),
+        ("Warehouse Risk", ["Warehouse", "Health Score", "Total", "Action Required", "EDD Expired", "Not Shipped", "Delivery %"], [[r["warehouse"], r["health_score"], r["total"], r["pending"], r["edd_expired"], r["not_shipped"], r["delivery_percentage"]] for r in data.get("warehouse_scorecards", [])]),
+        ("Priority Action Queue", ["Priority", "Reason", "Order No", "Courier", "Warehouse", "Zone", "Current Status", "OUR EDD", "Pending Days"], [[r["priority"], r["reason"], r["order_no"], r["courier"], r["warehouse"], r["zone"], r["current_status"], r["our_edd"], r["pending_days"]] for r in command.get("priority_actions", [])]),
+        ("Current Status", ["Current Status", "Order Count", "Percentage"], [[r["status"], r["count"], r["percentage"]] for r in data.get("status_overview", [])]),
+    ]
+    for title, headers, rows in sheets:
+        sheet = wb.create_sheet(title)
+        sheet.freeze_panes = "A3"
+        _append_table(sheet, title, headers, rows, 1)
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="md-logistics-report.xlsx"'},
     )
 
 
