@@ -358,6 +358,70 @@ button, input, select {
   }
 }
 
+.command-center {
+  position: relative;
+  isolation: isolate;
+}
+
+.command-center::after {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(110deg, transparent 26%, rgba(56, 189, 248, 0.09) 46%, transparent 66%);
+  content: "";
+  transform: translateX(-110%);
+  animation: command-scan 7s ease-in-out infinite;
+}
+
+.health-score {
+  box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.28);
+  animation: health-pulse 3.2s ease-in-out infinite;
+}
+
+.command-metric {
+  animation: metric-rise 0.55s ease-out both;
+}
+
+.command-metric:nth-child(2) { animation-delay: 0.1s; }
+.command-metric:nth-child(3) { animation-delay: 0.2s; }
+
+.kpi-grid > * {
+  animation: metric-rise 0.45s ease-out both;
+}
+
+.kpi-grid > *:nth-child(2) { animation-delay: 0.04s; }
+.kpi-grid > *:nth-child(3) { animation-delay: 0.08s; }
+.kpi-grid > *:nth-child(4) { animation-delay: 0.12s; }
+.kpi-grid > *:nth-child(5) { animation-delay: 0.16s; }
+.kpi-grid > *:nth-child(6) { animation-delay: 0.2s; }
+.kpi-grid > *:nth-child(7) { animation-delay: 0.24s; }
+.kpi-grid > *:nth-child(8) { animation-delay: 0.28s; }
+.kpi-grid > *:nth-child(9) { animation-delay: 0.32s; }
+
+@keyframes command-scan {
+  0%, 60% { transform: translateX(-110%); }
+  100% { transform: translateX(110%); }
+}
+
+@keyframes health-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.28); }
+  50% { box-shadow: 0 0 0 0.65rem rgba(56, 189, 248, 0); }
+}
+
+@keyframes metric-rise {
+  from { opacity: 0; transform: translateY(0.45rem); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .command-center::after,
+  .health-score,
+  .command-metric,
+  .kpi-grid > * {
+    animation: none !important;
+  }
+}
+
 @media print {
   aside, header, nav, .no-print {
     display: none !important;

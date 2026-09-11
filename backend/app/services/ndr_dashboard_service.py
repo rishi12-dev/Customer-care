@@ -96,7 +96,7 @@ def _is_pending(status: str | None) -> bool:
 
 def _is_pre_shipment(status: str | None) -> bool:
     normalized = _normalize(status)
-    return bool(re.search(r"\b(pending|packed|in[ -]?progress|processing)\b", normalized))
+    return bool(re.search(r"\b(pending|packed|progress|in[ -]?progress|processing)\b", normalized))
 
 
 def _is_shipped(status: str | None) -> bool:
@@ -111,21 +111,22 @@ def _parse_date(value) -> date | None:
     if value is None:
         return None
     if isinstance(value, datetime):
-        return value.date()
+        return value.date() if value.year >= 2000 else None
     if isinstance(value, date):
-        return value
+        return value if value.year >= 2000 else None
     text = str(value).strip()
     if not text or text.lower() in {"nan", "nat", "none"}:
         return None
     for dayfirst in (False, True):
         try:
             parsed = datetime.strptime(text[:10], "%Y-%m-%d").date()
-            return parsed
+            return parsed if parsed.year >= 2000 else None
         except ValueError:
             pass
         for fmt in ("%d-%m-%Y", "%d/%m/%Y", "%d.%m.%Y", "%m/%d/%Y"):
             try:
-                return datetime.strptime(text[:10], fmt).date()
+                parsed = datetime.strptime(text[:10], fmt).date()
+                return parsed if parsed.year >= 2000 else None
             except ValueError:
                 continue
         if not dayfirst:
@@ -135,7 +136,8 @@ def _parse_date(value) -> date | None:
 
         parsed = pd.to_datetime(text, errors="coerce", dayfirst=True)
         if not pd.isna(parsed):
-            return parsed.date()
+            parsed_date = parsed.date()
+            return parsed_date if parsed_date.year >= 2000 else None
     except Exception:
         return None
     return None

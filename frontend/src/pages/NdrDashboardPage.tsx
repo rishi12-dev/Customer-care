@@ -161,7 +161,7 @@ export function NdrDashboardPage() {
         <div className="mt-6 text-sm text-slate-300">Report Date: {data.report_date}</div>
       </Card>
 
-      <Card className="overflow-hidden border-slate-300 bg-slate-950 text-white dark:border-slate-700">
+      <Card className="command-center overflow-hidden border-slate-300 bg-slate-950 text-white dark:border-slate-700">
         <div className="grid gap-6 lg:grid-cols-[auto_1fr] lg:items-center">
           <HealthScore score={data.command_center.health_score} label={data.command_center.health_label} tone={data.command_center.health_tone} />
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -188,7 +188,7 @@ export function NdrDashboardPage() {
         )}
       </Card>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="kpi-grid grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Kpi title="Total Orders" value={data.kpis.total_orders} percentage="Uploaded file rows" icon={Truck} tone="slate" />
         <Kpi title="Delivered" value={data.kpis.delivered} percentage={`${data.kpis.delivered_percentage}%`} icon={PackageCheck} tone="green" />
         <Kpi title="Shipped / In Transit" value={data.kpis.shipped} percentage={`${data.kpis.shipped_percentage}%`} icon={TrendingUp} tone="blue" />
@@ -289,11 +289,11 @@ function Select({ label, value, options, onChange }: { label: string; value: str
 
 function HealthScore({ score, label, tone }: { score: number; label: string; tone: "green" | "amber" | "red" }) {
   const colors = { green: "#10b981", amber: "#f59e0b", red: "#ef4444" };
-  return <div className="mx-auto grid h-40 w-40 place-items-center rounded-full" style={{ background: `conic-gradient(${colors[tone]} 0 ${score}%, rgba(255,255,255,.14) ${score}% 100%)` }}><div className="grid h-28 w-28 place-items-center rounded-full bg-slate-950 text-center"><div><p className="text-4xl font-black">{score}</p><p className="text-xs font-semibold uppercase tracking-wide text-slate-300">Health score</p><p className="mt-1 text-xs text-slate-400">{label}</p></div></div></div>;
+  return <div className="health-score mx-auto grid h-40 w-40 place-items-center rounded-full" style={{ background: `conic-gradient(${colors[tone]} 0 ${score}%, rgba(255,255,255,.14) ${score}% 100%)` }}><div className="grid h-28 w-28 place-items-center rounded-full bg-slate-950 text-center"><div><p className="text-4xl font-black">{score}</p><p className="text-xs font-semibold uppercase tracking-wide text-slate-300">Health score</p><p className="mt-1 text-xs text-slate-400">{label}</p></div></div></div>;
 }
 
 function CommandMetric({ label, value, detail, icon: Icon }: { label: string; value: string | number; detail: string; icon: typeof Truck }) {
-  return <div className="min-w-0 rounded-md border border-white/15 bg-white/5 p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</p><p className="mt-2 break-words text-lg font-bold">{value}</p><p className="mt-1 text-xs text-slate-400">{detail}</p></div><Icon className="shrink-0 text-sky-300" size={20} /></div></div>;
+  return <div className="command-metric min-w-0 rounded-md border border-white/15 bg-white/5 p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</p><p className="mt-2 break-words text-lg font-bold">{value}</p><p className="mt-1 text-xs text-slate-400">{detail}</p></div><Icon className="shrink-0 text-sky-300" size={20} /></div></div>;
 }
 
 function Kpi({ title, value, percentage, icon: Icon, tone }: { title: string; value: number; percentage: string; icon: typeof Truck; tone: "slate" | "green" | "blue" | "amber" | "red" | "cyan" }) {
