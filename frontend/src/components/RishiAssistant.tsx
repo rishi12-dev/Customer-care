@@ -9,7 +9,7 @@ type ChatMessage = { id: number; from: "rishi" | "user"; text: string; details?:
 const welcome: ChatMessage = {
   id: 1,
   from: "rishi",
-  text: "Hi, I'm Rishi. Order number ya docket number bhejo, main latest uploaded order aur courier details bata dunga.",
+  text: "Hi, I'm Rishi. Share an order number or docket number for the latest uploaded shipment details. Type Summary for overall counts, or 1-5 Summary for the ShippingDate 1-5 range.",
 };
 
 export function RishiAssistant() {
@@ -34,7 +34,7 @@ export function RishiAssistant() {
       const reply = await api<AssistantReply>(`/assistant?q=${encodeURIComponent(query)}`);
       setMessages((current) => [...current, { id: Date.now() + 1, from: "rishi", text: reply.message, details: reply.details }]);
     } catch (error) {
-      setMessages((current) => [...current, { id: Date.now() + 1, from: "rishi", text: error instanceof Error ? error.message : "Main record check nahi kar paaya. Thodi der baad try karo." }]);
+      setMessages((current) => [...current, { id: Date.now() + 1, from: "rishi", text: error instanceof Error ? error.message : "I could not check the uploaded records right now. Please try again shortly." }]);
     } finally {
       setLoading(false);
     }
@@ -54,7 +54,7 @@ export function RishiAssistant() {
             <div ref={endRef} />
           </div>
           <form className="flex gap-2 border-t border-border p-3" onSubmit={submit}>
-            <input className="h-10 min-w-0 flex-1 rounded-md border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30" value={input} onChange={(event) => setInput(event.target.value)} placeholder="Order no. or docket no." aria-label="Ask Rishi" />
+            <input className="h-10 min-w-0 flex-1 rounded-md border border-border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30" value={input} onChange={(event) => setInput(event.target.value)} placeholder="Order no., docket no., or Summary" aria-label="Ask Rishi" />
             <button className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-primary text-white transition hover:brightness-105 disabled:opacity-60" disabled={!input.trim() || loading} aria-label="Send message"><Send size={17} /></button>
           </form>
         </section>
