@@ -121,6 +121,30 @@ def _is_not_shipped(status: str | None) -> bool:
     return _is_pending(status) and not _is_shipped(status)
 
 
+def _order_is_cancelled(order: dict) -> bool:
+    return _is_cancelled(order.get("status")) or _is_cancelled(order.get("oms_status"))
+
+
+def _order_is_refunded(order: dict) -> bool:
+    return _is_refunded(order.get("status")) or _is_refunded(order.get("oms_status"))
+
+
+def _order_is_terminal(order: dict) -> bool:
+    return _is_delivered(order.get("status")) or _order_is_cancelled(order) or _order_is_refunded(order)
+
+
+def _order_is_pending(order: dict) -> bool:
+    return not _order_is_terminal(order)
+
+
+def _order_is_shipped(order: dict) -> bool:
+    return _order_is_pending(order) and _status_group(order.get("status")) in {"Shipped", "In Transit", "Out for Delivery"}
+
+
+def _order_is_not_shipped(order: dict) -> bool:
+    return _order_is_pending(order) and not _order_is_shipped(order)
+
+
 def _parse_date(value) -> date | None:
     if value is None:
         return None
@@ -268,9 +292,9 @@ def _edd_status(order: dict, today: date | None = None) -> str:
     today = today or date.today()
     if _is_delivered(order["status"]):
         return "Delivered"
-    if _is_cancelled(order["status"]):
+    if _order_is_cancelled(order):
         return "Cancelled"
-    if _is_refunded(order["status"]):
+    if _order_is_refunded(order):
         return "Refunded"
     if _is_pre_shipment(order["status"]):
         return "Not Shipped"
@@ -281,7 +305,7 @@ def _edd_status(order: dict, today: date | None = None) -> str:
 
 def _pending_days(order: dict, today: date | None = None) -> int:
     today = today or date.today()
-    if not _is_pending(order["status"]) or _is_pre_shipment(order["status"]) or not order["edd"]:
+    if not _order_is_pending(order) or _is_pre_shipment(order["status"]) or not order["edd"]:
         return 0
     return max((today - order["edd"]).days, 0)
 
@@ -291,12 +315,12 @@ def _count_group(orders: Iterable[dict]) -> dict:
     today = date.today()
     total = len(orders)
     delivered = sum(1 for order in orders if _is_delivered(order["status"]))
-    cancelled = sum(1 for order in orders if _is_cancelled(order["status"]))
-    refunded = sum(1 for order in orders if _is_refunded(order["status"]))
-    pre_shipment = sum(1 for order in orders if _is_pre_shipment(order["status"]))
-    shipped = sum(1 for order in orders if _is_shipped(order["status"]))
-    not_shipped = sum(1 for order in orders if _is_not_shipped(order["status"]))
-    pending = sum(1 for order in orders if _is_pending(order["status"]))
+    cancelled = sum(1 for order in orders if _order_is_cancelled(order))
+    refunded = sum(1 for order in orders if _order_is_refunded(order))
+    pre_shipment = sum(1 for order in orders if _order_is_pending(order) and _is_pre_shipment(order["status"]))
+    shipped = sum(1 for order in orders if _order_is_shipped(order))
+    not_shipped = sum(1 for order in orders if _order_is_not_shipped(order))
+    pending = sum(1 for order in orders if _order_is_pending(order))
     edd_expired = sum(1 for order in orders if _edd_status(order, today) == "EDD Expired")
     edd_remaining = sum(1 for order in orders if _edd_status(order, today) == "EDD Remaining")
     return {
@@ -396,7 +420,7 @@ def _critical_order_details(orders: list[dict]) -> list[dict]:
     today = date.today()
     rows = []
     for order in orders:
-        if not _is_pending(order["status"]) or _edd_status(order, today) != "EDD Expired":
+        if not _order_is_pending(order) or _edd_status(order, today) != "EDD Expired":
             continue
         rows.append(
             {
@@ -423,7 +447,7 @@ def _pending_orders(orders: list[dict]) -> list[dict]:
     today = date.today()
     rows = []
     for order in orders:
-        if not _is_pending(order["status"]):
+        if not _order_is_pending(order):
             continue
         rows.append(
             {
@@ -446,12 +470,12 @@ def _priority_actions(orders: list[dict]) -> list[dict]:
     today = date.today()
     actions = []
     for order in orders:
-        if not _is_pending(order["status"]):
+        if not _order_is_pending(order):
             continue
         edd_status = _edd_status(order, today)
         if edd_status == "EDD Expired":
             priority, reason = "Critical", "OUR EDD crossed"
-        elif _is_not_shipped(order["status"]):
+        elif _order_is_not_shipped(order):
             priority, reason = "High", "Not shipped as per Current status"
         elif _pending_days(order, today) >= 3:
             priority, reason = "Medium", "No closure after EDD"
