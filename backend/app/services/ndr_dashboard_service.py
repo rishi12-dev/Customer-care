@@ -16,7 +16,7 @@ from starlette.responses import StreamingResponse
 from app.models.entities import NdrTrackingRecord
 
 
-REQUIRED_COLUMNS = ["OrderNo", "PincodeZone", "Shipment", "OUR EDD", "Current status"]
+REQUIRED_COLUMNS = ["OrderNo", "PincodeZone", "Shipment", "OUR EDD", "Current status or Courier remark"]
 AGE_BUCKETS = [
     ("01-05", 1, 5),
     ("06-10", 6, 10),
@@ -54,13 +54,27 @@ def _normalize(value: str | None) -> str:
 
 def _status_group(status: str | None) -> str:
     normalized = _normalize(status)
+    if "cancel" in normalized or "canceled" in normalized:
+        return "Cancelled"
+    if "refund" in normalized:
+        return "Refunded"
+    if "out for delivery" in normalized or re.search(r"\bofd\b", normalized):
+        return "Out for Delivery"
     if "deliver" in normalized:
         return "Delivered"
-    if any(token in normalized for token in ["ship", "transit", "ofd", "out for delivery", "pickup", "manifest"]):
-        return "Shipped / In Transit"
+    if "transit" in normalized:
+        return "In Transit"
+    if "ndr" in normalized:
+        return "NDR"
+    if "rto" in normalized or "return to origin" in normalized:
+        return "RTO"
     if any(token in normalized for token in ["packed", "pack"]):
         return "Packed"
-    if any(token in normalized for token in ["process", "pending", "ndr", "hold", "attempt", "rto"]):
+    if any(token in normalized for token in ["progress", "process"]):
+        return "Progress"
+    if any(token in normalized for token in ["ship", "pickup", "manifest"]):
+        return "Shipped"
+    if any(token in normalized for token in ["pending", "hold", "attempt"]):
         return "Pending"
     return "Other Status" if normalized else "Other Status"
 
@@ -96,11 +110,11 @@ def _is_pending(status: str | None) -> bool:
 
 def _is_pre_shipment(status: str | None) -> bool:
     normalized = _normalize(status)
-    return bool(re.search(r"\b(pending|packed|progress|in[ -]?progress|processing)\b", normalized))
+    return normalized in {"pending", "packed", "progress", "in progress", "processing", "process"}
 
 
 def _is_shipped(status: str | None) -> bool:
-    return _is_pending(status) and _status_group(status) == "Shipped / In Transit"
+    return _is_pending(status) and _status_group(status) in {"Shipped", "In Transit", "Out for Delivery"}
 
 
 def _is_not_shipped(status: str | None) -> bool:
@@ -180,6 +194,8 @@ def _base_orders(db: Session) -> tuple[list[dict], list[str]]:
         order_no = _raw_value(raw, "OrderNo")
         if not order_no:
             continue
+        courier_remark = _raw_first(raw, ["Courier remark", "Courier remarks", "Courier Remark", "Courier Remarks"])
+        oms_status = _raw_first(raw, ["Current status", "Current Status", "OMS STATUS", "OMS Status"]) or "Unknown"
         item = {
             "id": row_id,
             "order_no": order_no,
@@ -191,11 +207,23 @@ def _base_orders(db: Session) -> tuple[list[dict], list[str]]:
             "mobile_no": _raw_first(raw, ["Mobile No", "Mobile", "Phone"]),
             "docket_no": _raw_first(raw, ["Docketno", "Docket No", "Docket", "AWB"]),
             "edd": _parse_date(_raw_value(raw, "OUR EDD")),
-            "status": _raw_value(raw, "Current status") or "Unknown",
+            # Courier remarks carry the latest movement from the courier. OMS status is only a fallback.
+            "status": courier_remark or oms_status,
+            "courier_remark": courier_remark,
+            "oms_status": oms_status,
         }
         source_rows[(upload_filename or "", row_number or 0, order_no)] = item
 
-    missing = [column for column in REQUIRED_COLUMNS if column not in available]
+    normalized_headers = {re.sub(r"[^a-z0-9]", "", str(header).lower()) for header in available}
+    required_headers = {
+        "OrderNo": "orderno",
+        "PincodeZone": "pincodezone",
+        "Shipment": "shipment",
+        "OUR EDD": "ouredd",
+    }
+    missing = [label for label, normalized in required_headers.items() if normalized not in normalized_headers]
+    if not ({"currentstatus", "omsstatus", "courierremark", "courierremarks"} & normalized_headers):
+        missing.append("Current status or Courier remark")
     return list(source_rows.values()), missing
 
 
@@ -314,7 +342,7 @@ def _with_score(rows: list[dict]) -> list[dict]:
 
 def _status_overview(orders: list[dict]) -> list[dict]:
     total = len(orders)
-    counts = Counter(order["status"] or "Unknown" for order in orders)
+    counts = Counter(_status_group(order["status"]) for order in orders)
     return [{"status": name, "count": count, "percentage": _pct(count, total)} for name, count in counts.most_common()]
 
 
@@ -382,6 +410,8 @@ def _critical_order_details(orders: list[dict]) -> list[dict]:
                 "shipping_date": order["shipping_date"].isoformat() if order.get("shipping_date") else None,
                 "our_edd": order["edd"].isoformat() if order["edd"] else None,
                 "current_status": order["status"],
+                "courier_remark": order.get("courier_remark"),
+                "oms_status": order.get("oms_status"),
                 "edd_status": _edd_status(order, today),
                 "pending_days": _pending_days(order, today),
             }
@@ -401,6 +431,8 @@ def _pending_orders(orders: list[dict]) -> list[dict]:
                 "courier": order["courier"],
                 "zone": order["zone"],
                 "current_status": order["status"],
+                "courier_remark": order.get("courier_remark"),
+                "oms_status": order.get("oms_status"),
                 "our_edd": order["edd"].isoformat() if order["edd"] else None,
                 "shipping_date": order["shipping_date"].isoformat() if order.get("shipping_date") else None,
                 "edd_status": _edd_status(order, today),
@@ -434,6 +466,8 @@ def _priority_actions(orders: list[dict]) -> list[dict]:
                 "warehouse": order.get("warehouse") or "Unknown",
                 "zone": order["zone"],
                 "current_status": order["status"],
+                "courier_remark": order.get("courier_remark"),
+                "oms_status": order.get("oms_status"),
                 "our_edd": order["edd"].isoformat() if order["edd"] else None,
                 "pending_days": _pending_days(order, today),
             }

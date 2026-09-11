@@ -150,7 +150,7 @@ export function NdrDashboardPage() {
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-sky-200">Logistics Control Tower</p>
             <h1 className="mt-2 text-3xl font-bold">NDR Management Dashboard</h1>
-            <p className="mt-2 max-w-3xl text-sm text-slate-300">Executive view based only on uploaded NDR Excel columns: OrderNo, PincodeZone, Shipment, OUR EDD, Current status.</p>
+            <p className="mt-2 max-w-3xl text-sm text-slate-300">Courier Remarks drive shipment movement such as In Transit and Out for Delivery. OMS Current Status is used only when a courier remark is unavailable.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button className="bg-emerald-600" onClick={() => download("/ndr/export/md-report", "md-logistics-report.xlsx")}><Gauge size={17} /> MD Report</Button>
@@ -201,7 +201,7 @@ export function NdrDashboardPage() {
       </div>
 
       <div className="grid gap-6 xl:grid-cols-3">
-        <Card className="xl:col-span-2"><SectionTitle title="Current Status Overview" /><BarList data={data.status_overview.map((row) => ({ name: row.status, value: row.count, percentage: row.percentage }))} /></Card>
+        <Card className="xl:col-span-2"><SectionTitle title="Courier Status Overview" /><BarList data={data.status_overview.map((row) => ({ name: row.status, value: row.count, percentage: row.percentage }))} /></Card>
         <Card><SectionTitle title="Delivery Performance" /><Donut kpis={data.kpis} /><MiniBars data={data.edd_performance.map((row) => ({ name: row.name, value: row.value, percentage: row.percentage }))} /></Card>
       </div>
 
@@ -217,7 +217,7 @@ export function NdrDashboardPage() {
 
       <Card className="overflow-hidden p-0">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-5">
-          <div><SectionTitle title="Priority Action Queue" /><p className="-mt-3 text-sm text-slate-500">EDD breaches and orders that need a decision today.</p></div>
+          <div><SectionTitle title="Priority Action Queue" /><p className="-mt-3 text-sm text-slate-500">EDD breaches and pre-shipment orders needing a decision today.</p></div>
           <Button className="bg-emerald-600" onClick={() => download("/ndr/export/md-report", "md-logistics-report.xlsx")}><Download size={16} /> Download MD Report</Button>
         </div>
         <PriorityActionTable rows={data.command_center.priority_actions} />
@@ -340,7 +340,7 @@ function ScorecardTable({ rows, label }: { rows: ScorecardRow[]; label: "courier
 function PriorityActionTable({ rows }: { rows: PriorityAction[] }) {
   if (!rows.length) return <div className="p-5 text-sm text-slate-500">No immediate action items for the selected filters.</div>;
   const tones = { Critical: "bg-red-100 text-red-700", High: "bg-amber-100 text-amber-700", Medium: "bg-sky-100 text-sky-700" };
-  return <div className="overflow-x-auto"><table className="min-w-[820px] w-full text-left text-xs"><thead className="bg-muted"><tr>{["Priority", "Order No", "Reason", "Courier", "Warehouse", "Zone", "Current Status", "OUR EDD", "Days"].map((header) => <th className="p-3" key={header}>{header}</th>)}</tr></thead><tbody>{rows.map((row) => <tr key={`${row.order_no}-${row.reason}`} className="border-t border-border align-top"><td className="p-3"><span className={cn("rounded-md px-2 py-1 font-bold", tones[row.priority])}>{row.priority}</span></td><td className="p-3 font-semibold">{row.order_no}</td><td className="p-3">{row.reason}</td><td className="p-3">{row.courier}</td><td className="p-3">{row.warehouse}</td><td className="p-3">{row.zone}</td><td className="p-3">{row.current_status}</td><td className="p-3">{row.our_edd ?? "N/A"}</td><td className="p-3">{row.pending_days}</td></tr>)}</tbody></table></div>;
+  return <div className="overflow-x-auto"><table className="min-w-[820px] w-full text-left text-xs"><thead className="bg-muted"><tr>{["Priority", "Order No", "Reason", "Courier", "Warehouse", "Zone", "Courier Status", "OUR EDD", "Days"].map((header) => <th className="p-3" key={header}>{header}</th>)}</tr></thead><tbody>{rows.map((row) => <tr key={`${row.order_no}-${row.reason}`} className="border-t border-border align-top"><td className="p-3"><span className={cn("rounded-md px-2 py-1 font-bold", tones[row.priority])}>{row.priority}</span></td><td className="p-3 font-semibold">{row.order_no}</td><td className="p-3">{row.reason}</td><td className="p-3">{row.courier}</td><td className="p-3">{row.warehouse}</td><td className="p-3">{row.zone}</td><td className="p-3">{row.current_status}</td><td className="p-3">{row.our_edd ?? "N/A"}</td><td className="p-3">{row.pending_days}</td></tr>)}</tbody></table></div>;
 }
 
 function AgeingTable({ rows }: { rows: Array<PerformanceRow & { bucket: string }> }) {
