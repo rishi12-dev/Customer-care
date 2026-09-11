@@ -9,6 +9,7 @@ from app.schemas.dto import DashboardResponse, OrderRead, SearchResponse, Settin
 from app.services.excel_service import restore_backup
 from app.services.ndr_dashboard_service import excel_report, md_excel_report, ndr_dashboard, pdf_report
 from app.services.ndr_service import search_tracking_history, tracking_history_for_order
+from app.services.rishi_assistant_service import shipment_assistant_reply
 from app.services.search_service import search_orders
 
 
@@ -63,6 +64,11 @@ def dashboard(user: User = Depends(current_user), db: Session = Depends(get_db))
 @router.get("/search", response_model=SearchResponse)
 def search(request: Request, q: str = Query(min_length=2, max_length=160), user: User = Depends(current_user), db: Session = Depends(get_db)):
     return search_orders(db, q, user, request_ip(request))
+
+
+@router.get("/assistant")
+def rishi_assistant(q: str = Query(min_length=2, max_length=160), user: User = Depends(current_user), db: Session = Depends(get_db)):
+    return shipment_assistant_reply(db, q)
 
 
 @router.get("/orders/{order_id}", response_model=OrderRead)

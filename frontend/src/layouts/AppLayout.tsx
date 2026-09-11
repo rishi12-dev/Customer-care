@@ -2,6 +2,7 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { ArchiveRestore, BarChart3, History, LogOut, MapPin, Moon, MoreVertical, Search, Settings, Truck, Upload, Users, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "../components/ui/Button";
+import { RishiAssistant } from "../components/RishiAssistant";
 import { useAuth } from "../context/AuthContext";
 import { cn } from "../utils/cn";
 
@@ -107,6 +108,7 @@ export function AppLayout() {
         <main className="min-w-0 overflow-x-hidden p-5 lg:p-8"><Outlet /></main>
         <footer className="px-5 pb-6 text-center text-xs font-semibold tracking-wide text-slate-500 lg:px-8">MADE BY RISHI & MOMO ❤️</footer>
       </div>
+      <RishiAssistant />
       {showWelcome && (
         <div className="fixed inset-0 z-40 grid place-items-center bg-black/35 p-4">
           <div className="w-full max-w-md rounded-lg border border-border bg-background p-5 shadow-xl">
