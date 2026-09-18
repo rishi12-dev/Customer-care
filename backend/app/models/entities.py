@@ -105,6 +105,25 @@ class NdrTrackingRecord(Base):
     )
 
 
+class NdrDailySnapshot(Base):
+    __tablename__ = "ndr_daily_snapshots"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    snapshot_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    source_filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    total_orders: Mapped[int] = mapped_column(Integer, default=0)
+    delivered: Mapped[int] = mapped_column(Integer, default=0)
+    refunded: Mapped[int] = mapped_column(Integer, default=0)
+    cancelled: Mapped[int] = mapped_column(Integer, default=0)
+    not_shipped: Mapped[int] = mapped_column(Integer, default=0)
+    shipped: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        Index("ix_ndr_daily_snapshots_date_id", "snapshot_date", "id"),
+    )
+
+
 class UploadHistory(Base):
     __tablename__ = "upload_history"
 

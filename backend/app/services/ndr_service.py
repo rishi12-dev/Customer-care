@@ -207,6 +207,11 @@ def replace_ndr_records(db: Session, content: bytes, filename: str) -> dict:
         batch = rows[index : index + BATCH_SIZE]
         db.bulk_insert_mappings(NdrTrackingRecord, batch)
         inserted += len(batch)
+    # Keep a compact daily snapshot before the next NDR upload replaces these rows.
+    db.flush()
+    from app.services.ndr_dashboard_service import record_daily_snapshot
+
+    record_daily_snapshot(db, filename)
     db.commit()
     return {"records": inserted, "duration_ms": int((perf_counter() - started) * 1000), "errors": [], "warnings": warnings, "backup_id": 0}
 

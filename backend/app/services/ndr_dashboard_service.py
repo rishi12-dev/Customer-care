@@ -13,7 +13,7 @@ from openpyxl.utils import get_column_letter
 from sqlalchemy.orm import Session
 from starlette.responses import StreamingResponse
 
-from app.models.entities import NdrTrackingRecord
+from app.models.entities import NdrDailySnapshot, NdrTrackingRecord
 
 
 REQUIRED_COLUMNS = ["OrderNo", "PincodeZone", "Shipment", "OUR EDD", "Current status or Courier remark"]
@@ -520,6 +520,87 @@ def _command_center(metrics: dict, courier_rows: list[dict], warehouse_rows: lis
     }
 
 
+def record_daily_snapshot(db: Session, filename: str) -> None:
+    """Persist the latest NDR file totals so operational volume can be compared over time."""
+    orders, missing = _base_orders(db)
+    if missing:
+        return
+    metrics = _count_group(orders)
+    snapshot = (
+        db.query(NdrDailySnapshot)
+        .filter(NdrDailySnapshot.snapshot_date == date.today())
+        .order_by(NdrDailySnapshot.id.desc())
+        .first()
+    )
+    if not snapshot:
+        snapshot = NdrDailySnapshot(snapshot_date=date.today(), source_filename=filename)
+        db.add(snapshot)
+    snapshot.source_filename = filename
+    snapshot.total_orders = metrics["total"]
+    snapshot.delivered = metrics["delivered"]
+    snapshot.refunded = metrics["refunded"]
+    snapshot.cancelled = metrics["cancelled"]
+    snapshot.not_shipped = metrics["not_shipped"]
+    snapshot.shipped = metrics["shipped"]
+
+
+def _volume_trend(db: Session, current_metrics: dict) -> dict:
+    rows = (
+        db.query(NdrDailySnapshot)
+        .order_by(NdrDailySnapshot.snapshot_date.asc(), NdrDailySnapshot.id.asc())
+        .all()
+    )
+    latest_per_day: dict[date, NdrDailySnapshot] = {}
+    for row in rows:
+        latest_per_day[row.snapshot_date] = row
+
+    # The live NDR file is useful immediately, even before tomorrow's first snapshot exists.
+    if date.today() not in latest_per_day:
+        latest_per_day[date.today()] = NdrDailySnapshot(
+            snapshot_date=date.today(),
+            source_filename="Current NDR file",
+            total_orders=current_metrics["total"],
+            delivered=current_metrics["delivered"],
+            refunded=current_metrics["refunded"],
+            cancelled=current_metrics["cancelled"],
+            not_shipped=current_metrics["not_shipped"],
+            shipped=current_metrics["shipped"],
+        )
+
+    daily_rows = list(sorted(latest_per_day.values(), key=lambda row: row.snapshot_date))[-30:]
+    daily = [
+        {
+            "date": row.snapshot_date.isoformat(),
+            "orders": row.total_orders,
+            "delivered": row.delivered,
+            "refunded": row.refunded,
+            "cancelled": row.cancelled,
+            "not_shipped": row.not_shipped,
+        }
+        for row in daily_rows
+    ]
+    weeks: dict[date, int] = defaultdict(int)
+    for row in daily_rows:
+        monday = row.snapshot_date - timedelta(days=row.snapshot_date.weekday())
+        weeks[monday] += row.total_orders
+    weekly = [{"date": week.isoformat(), "orders": total} for week, total in sorted(weeks.items())]
+
+    latest, previous = (daily[-1], daily[-2] if len(daily) > 1 else None)
+    change = latest["orders"] - previous["orders"] if previous else 0
+    return {
+        "daily": daily,
+        "weekly": weekly,
+        "comparison": {
+            "current_date": latest["date"],
+            "current_orders": latest["orders"],
+            "previous_date": previous["date"] if previous else None,
+            "previous_orders": previous["orders"] if previous else None,
+            "change": change,
+            "change_percentage": _pct(abs(change), previous["orders"]) if previous else None,
+        },
+    }
+
+
 def ndr_dashboard(db: Session, params: dict | None = None) -> dict:
     params = params or {}
     orders, missing = _base_orders(db)
@@ -528,6 +609,7 @@ def ndr_dashboard(db: Session, params: dict | None = None) -> dict:
 
     filtered = _apply_filters(orders, params)
     metrics = _count_group(filtered)
+    all_metrics = _count_group(orders)
     status = _status_overview(filtered)
     courier = _group_table(filtered, "courier", "courier")
     zone = _group_table(filtered, "zone", "zone")
@@ -540,11 +622,11 @@ def ndr_dashboard(db: Session, params: dict | None = None) -> dict:
     critical_orders = _critical_order_details(filtered)
     priority_actions = _priority_actions(filtered)
     command_center = _command_center(metrics, courier_scorecards, warehouse_scorecards, priority_actions)
-    edd = [
-        {"name": "EDD Delivered", "value": metrics["delivered"], "percentage": _pct(metrics["delivered"], metrics["total"])},
+    delivery_performance = [
+        {"name": "Delivered", "value": metrics["delivered"], "percentage": _pct(metrics["delivered"], metrics["total"])},
+        {"name": "Refunded", "value": metrics["refunded"], "percentage": _pct(metrics["refunded"], metrics["total"])},
+        {"name": "Cancelled", "value": metrics["cancelled"], "percentage": _pct(metrics["cancelled"], metrics["total"])},
         {"name": "Not Shipped", "value": metrics["pre_shipment"], "percentage": _pct(metrics["pre_shipment"], metrics["total"])},
-        {"name": "EDD Remaining", "value": metrics["edd_remaining"], "percentage": _pct(metrics["edd_remaining"], metrics["total"])},
-        {"name": "EDD Expired", "value": metrics["edd_expired"], "percentage": _pct(metrics["edd_expired"], metrics["total"])},
     ]
     top_courier = courier[0] if courier else None
     top_zone = zone[0] if zone else None
@@ -607,7 +689,8 @@ def ndr_dashboard(db: Session, params: dict | None = None) -> dict:
         "command_center": command_center,
         "pending_ageing": ageing,
         "pending_order_analysis_detail": pending_analysis_detail,
-        "edd_performance": edd,
+        "delivery_performance": delivery_performance,
+        "volume_trend": _volume_trend(db, all_metrics),
         "pending_orders": pending,
         "critical_orders": critical_orders,
         "insights": insights,

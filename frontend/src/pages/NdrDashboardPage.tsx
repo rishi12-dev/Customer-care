@@ -48,7 +48,12 @@ type NdrDashboard = {
     highest_risk_courier: ScorecardRow | null;
   };
   pending_ageing: Array<PerformanceRow & { bucket: string }>;
-  edd_performance: Array<{ name: string; value: number; percentage: number }>;
+  delivery_performance: Array<{ name: string; value: number; percentage: number }>;
+  volume_trend: {
+    daily: Array<{ date: string; orders: number; delivered: number; refunded: number; cancelled: number; not_shipped: number }>;
+    weekly: Array<{ date: string; orders: number }>;
+    comparison: { current_date: string; current_orders: number; previous_date: string | null; previous_orders: number | null; change: number; change_percentage: number | null };
+  };
   pending_orders: PendingOrder[];
   insights: string[];
   alerts: Array<{ level: "critical" | "attention" | "monitor"; message: string }>;
@@ -110,6 +115,7 @@ const dateFilters = [
 
 export function NdrDashboardPage() {
   const [filters, setFilters] = useState({ date_filter: "all", start_date: "", end_date: "", courier: "all", zone: "all", status: "all", edd_status: "all", search: "", order_search: "" });
+  const [trendMode, setTrendMode] = useState<"daily" | "weekly">("daily");
   const [pendingSearch, setPendingSearch] = useState("");
   const [page, setPage] = useState(1);
   const query = useMemo(() => buildQuery(filters), [filters]);
@@ -200,9 +206,19 @@ export function NdrDashboardPage() {
         <Kpi title="Refunded" value={data.kpis.refunded} percentage={`${data.kpis.refunded_percentage}% of total`} icon={RotateCcw} tone="slate" />
       </div>
 
+      <Card>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div><SectionTitle title="Order Volume Trend" /><p className="-mt-3 text-sm text-slate-500">NDR file totals saved on each daily upload.</p></div>
+          <div className="flex rounded-md border border-border p-1">
+            {(["daily", "weekly"] as const).map((mode) => <button key={mode} type="button" onClick={() => setTrendMode(mode)} className={cn("rounded px-3 py-1.5 text-sm font-semibold capitalize", trendMode === mode ? "bg-primary text-primary-foreground" : "text-slate-500")}>{mode}</button>)}
+          </div>
+        </div>
+        <VolumeTrend trend={data.volume_trend} mode={trendMode} />
+      </Card>
+
       <div className="grid gap-6 xl:grid-cols-3">
         <Card className="xl:col-span-2"><SectionTitle title="Courier Status Overview" /><BarList data={data.status_overview.map((row) => ({ name: row.status, value: row.count, percentage: row.percentage }))} /></Card>
-        <Card><SectionTitle title="Delivery Performance" /><Donut kpis={data.kpis} /><MiniBars data={data.edd_performance.map((row) => ({ name: row.name, value: row.value, percentage: row.percentage }))} /></Card>
+        <Card><SectionTitle title="Delivery Performance" /><Donut data={data.delivery_performance} /><MiniBars data={data.delivery_performance} /></Card>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-2">
@@ -323,10 +339,35 @@ function MiniBars({ data }: { data: Array<{ name: string; value: number; percent
   return <div className="mt-4 grid gap-2">{data.map((item) => <div key={item.name} className="flex items-center justify-between rounded-md bg-muted/40 px-3 py-2 text-sm"><span>{item.name}</span><b>{item.value.toLocaleString()} ({item.percentage}%)</b></div>)}</div>;
 }
 
-function Donut({ kpis }: { kpis: Kpis }) {
-  const delivered = kpis.delivered_percentage;
-  const shipped = kpis.shipped_percentage;
-  return <div className="mx-auto grid h-48 w-48 place-items-center rounded-full" style={{ background: `conic-gradient(#10b981 0 ${delivered}%, #3b82f6 ${delivered}% ${delivered + shipped}%, #f59e0b ${delivered + shipped}% 100%)` }}><div className="grid h-28 w-28 place-items-center rounded-full bg-background text-center"><div><p className="text-2xl font-bold">{kpis.delivery_percentage}%</p><p className="text-xs text-slate-500">Delivery Rate</p></div></div></div>;
+function Donut({ data }: { data: Array<{ name: string; value: number; percentage: number }> }) {
+  const colors: Record<string, string> = { Delivered: "#10b981", Refunded: "#8b5cf6", Cancelled: "#ef4444", "Not Shipped": "#f59e0b" };
+  const selected = data.reduce((sum, item) => sum + item.value, 0);
+  let offset = 0;
+  const segments = data.map((item) => {
+    const start = offset;
+    offset += selected ? (item.value / selected) * 100 : 0;
+    return `${colors[item.name] ?? "#64748b"} ${start}% ${offset}%`;
+  });
+  return <div className="mx-auto grid h-48 w-48 place-items-center rounded-full" style={{ background: `conic-gradient(${segments.join(", ") || "#334155 0 100%"})` }}><div className="grid h-28 w-28 place-items-center rounded-full bg-background text-center"><div><p className="text-2xl font-bold">{selected.toLocaleString()}</p><p className="text-xs text-slate-500">Selected outcomes</p></div></div></div>;
+}
+
+function VolumeTrend({ trend, mode }: { trend: NdrDashboard["volume_trend"]; mode: "daily" | "weekly" }) {
+  const points = mode === "daily" ? trend.daily : trend.weekly;
+  if (!points.length) return <div className="grid h-52 place-items-center text-sm text-slate-500">Trend will appear after the first NDR upload.</div>;
+  const max = Math.max(...points.map((point) => point.orders), 1);
+  const width = 720;
+  const height = 220;
+  const chartPoints = points.map((point, index) => {
+    const x = points.length === 1 ? width / 2 : 24 + (index * (width - 48)) / (points.length - 1);
+    const y = height - 28 - (point.orders / max) * (height - 58);
+    return `${x},${y}`;
+  }).join(" ");
+  const current = points[points.length - 1];
+  const previous = points.length > 1 ? points[points.length - 2] : null;
+  const change = previous ? current.orders - previous.orders : 0;
+  const label = mode === "daily" ? "Latest upload" : "Latest recorded week";
+  const comparisonText = previous ? `${change >= 0 ? "+" : ""}${change.toLocaleString()} orders (${change >= 0 ? "higher" : "lower"} than previous ${mode === "daily" ? "upload" : "week"})` : "Upload another day to compare";
+  return <div className="mt-5 grid gap-4 lg:grid-cols-[1fr_220px] lg:items-center"><div className="min-w-0"><svg viewBox={`0 0 ${width} ${height}`} className="h-52 w-full overflow-visible" role="img" aria-label={`${mode} order volume trend`}><line x1="24" y1={height - 28} x2={width - 24} y2={height - 28} stroke="currentColor" className="text-border" strokeWidth="1" /><polyline points={chartPoints} fill="none" stroke="#0ea5e9" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />{points.map((point, index) => { const [x, y] = chartPoints.split(" ")[index].split(","); return <g key={point.date}><circle cx={x} cy={y} r="5" fill="#0ea5e9" /><text x={x} y={height - 7} textAnchor="middle" className="fill-slate-500 text-[11px]">{mode === "daily" ? point.date.slice(5) : `Wk ${point.date.slice(5)}`}</text></g>; })}</svg></div><div className="rounded-md border border-border bg-muted/30 p-4"><p className="text-xs font-semibold uppercase text-slate-500">{label}</p><p className="mt-2 text-3xl font-bold">{current.orders.toLocaleString()}</p><p className={cn("mt-2 text-sm font-semibold", previous === null ? "text-slate-500" : change >= 0 ? "text-emerald-600" : "text-red-600")}>{comparisonText}</p><p className="mt-3 text-xs text-slate-500">{current.date}{previous ? ` vs ${previous.date}` : ""}</p></div></div>;
 }
 
 function PerformanceTable({ rows, label }: { rows: Array<PerformanceRow & Record<string, string | number>>; label: "courier" | "zone" }) {
