@@ -8,7 +8,7 @@ import { TruckLoader } from "../components/TruckLoader";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { Input } from "../components/ui/Input";
-import type { NdrTrackingRecord, Order, PincodeService } from "../types";
+import type { NdrTrackingRecord, Order, PincodeSearchResponse, PincodeService } from "../types";
 import { cn } from "../utils/cn";
 import { buildStatusMessage } from "../utils/copyStatus";
 
@@ -67,19 +67,21 @@ export function SearchPage() {
 
   async function submitPincode(event: FormEvent) {
     event.preventDefault();
-    if (!/^\d{6}$/.test(pincodeQuery.trim())) {
+    const digits = pincodeQuery.replace(/\D/g, "");
+    if (digits.length < 6 || digits.length > 8) {
       setPincodeResults([]);
       setPincodeNotice("wrong");
-      setPincodeMessage("6 digit ka valid pincode daalo.");
+      setPincodeMessage("Valid 6-digit pincode ya 7-digit (/10) number daalo.");
       return;
     }
     setPincodeBusy(true);
     setPincodeMessage("");
     setPincodeNotice(null);
     try {
-      const data = await api<{ pincode: string; results: PincodeService[] }>(`/pincodes/search?q=${encodeURIComponent(pincodeQuery)}`);
+      const data = await api<PincodeSearchResponse>(`/pincodes/search?q=${encodeURIComponent(pincodeQuery.trim())}`);
       setPincodeResults(data.results);
-      setPincodeMessage(data.results.length ? `${data.results.length} courier service found for ${data.pincode}.` : `No service found for ${data.pincode || pincodeQuery}.`);
+      const prefix = data.was_divided_by_10 ? `⚡ Auto /10 applied (${pincodeQuery.trim()} → ${data.pincode}): ` : "";
+      setPincodeMessage(data.results.length ? `${prefix}${data.results.length} courier service found for ${data.pincode}.` : `No service found for ${data.pincode || pincodeQuery}.`);
       setPincodeNotice(data.results.length ? null : "empty");
     } catch (exc) {
       setPincodeResults([]);
@@ -125,7 +127,7 @@ export function SearchPage() {
         <Card>
           <form className="flex flex-col gap-3 sm:flex-row" onSubmit={submitPincode} noValidate>
             <label className="sr-only" htmlFor="quick-pincode-search">Check pincode service</label>
-            <Input id="quick-pincode-search" value={pincodeQuery} onChange={(event) => setPincodeQuery(event.target.value)} inputMode="numeric" minLength={6} maxLength={6} placeholder="Check pincode" required />
+            <Input id="quick-pincode-search" value={pincodeQuery} onChange={(event) => setPincodeQuery(event.target.value)} inputMode="numeric" minLength={6} maxLength={8} placeholder="Pincode or 7-digit CC number" required />
             <Button className="bg-accent" disabled={pincodeBusy}><MapPin size={18} /> {pincodeBusy ? "Checking" : "Check"}</Button>
           </form>
           {pincodeMessage && <p className="mt-4 text-sm text-slate-500">{pincodeMessage}</p>}

@@ -46,3 +46,29 @@ export async function api<T>(path: string, init: RequestInit = {}, retry = true)
   }
   return response.json() as Promise<T>;
 }
+
+export async function downloadFile(path: string, fallbackFilename: string) {
+  if (!tokens) loadTokens();
+  const headers = new Headers();
+  if (tokens?.accessToken) headers.set("Authorization", `Bearer ${tokens.accessToken}`);
+  const response = await fetch(`${API_URL}${path}`, { headers, credentials: "include" });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: "Download failed" }));
+    throw new Error(typeof error.detail === "string" ? error.detail : "Download failed");
+  }
+  const blob = await response.blob();
+  const contentDispo = response.headers.get("Content-Disposition");
+  let filename = fallbackFilename;
+  if (contentDispo && contentDispo.includes("filename=")) {
+    const match = contentDispo.match(/filename="?([^";]+)"?/);
+    if (match && match[1]) filename = match[1];
+  }
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.URL.revokeObjectURL(url);
+}

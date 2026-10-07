@@ -39,10 +39,37 @@ def _parse_bool(value) -> bool:
     return str(value).strip().lower() in {"true", "1", "yes", "y", "active"}
 
 
+from fastapi import HTTPException
+
+
+def resolve_pincode_query(value) -> tuple[str, bool]:
+    """
+    Smart resolution for numbers received from customer care:
+    - 7-digit numbers (e.g. 1100010): auto-divides by 10 (/10) -> 110001
+    - 6-digit standard pincodes (e.g. 110001): returns 110001
+    - Floats (e.g. 110001.0): returns 110001
+    Returns (resolved_6digit_pincode, was_divided_by_10)
+    """
+    raw_str = str(_clean(value) or "").strip()
+    if "." in raw_str:
+        try:
+            f_val = float(raw_str)
+            raw_str = str(int(f_val))
+        except ValueError:
+            pass
+    digits = re.sub(r"\D", "", raw_str)
+    if len(digits) == 7:
+        return digits[:6], True
+    if len(digits) == 6:
+        return digits, False
+    if len(digits) > 7:
+        return digits[:6], True
+    return digits, False
+
+
 def normalize_pincode(value) -> str:
-    text = str(_clean(value) or "")
-    digits = re.sub(r"\D", "", text)
-    return digits[:6] if len(digits) >= 6 else digits
+    pincode, _ = resolve_pincode_query(value)
+    return pincode
 
 
 def read_pincode_excel(content: bytes, filename: str) -> tuple[pd.DataFrame | None, list[str], list[str]]:
@@ -140,13 +167,112 @@ def replace_pincode_services(db: Session, files: list[tuple[str, bytes]]) -> dic
 
 
 def search_pincode_services(db: Session, query: str) -> dict:
-    pincode = normalize_pincode(query)
-    if len(pincode) != 6:
-        return {"query": query, "pincode": pincode, "results": []}
+    resolved_pincode, was_divided = resolve_pincode_query(query)
+    if len(resolved_pincode) != 6:
+        return {"query": query, "pincode": resolved_pincode, "was_divided_by_10": was_divided, "results": []}
     rows = (
         db.query(PincodeService)
-        .filter(PincodeService.pincode == pincode)
+        .filter(PincodeService.pincode == resolved_pincode)
         .order_by(PincodeService.active.desc(), PincodeService.courier.asc(), PincodeService.warehouse.asc())
         .all()
     )
-    return {"query": query, "pincode": pincode, "results": rows}
+    return {"query": query, "pincode": resolved_pincode, "was_divided_by_10": was_divided, "results": rows}
+
+
+def bulk_search_pincode_services(db: Session, raw_queries: list[str]) -> dict:
+    resolved_items: list[dict] = []
+    unique_pincodes: set[str] = set()
+
+    for raw in raw_queries:
+        trimmed = str(raw).strip()
+        if not trimmed:
+            continue
+        pincode, was_divided = resolve_pincode_query(trimmed)
+        resolved_items.append({"query": trimmed, "resolved_pincode": pincode, "was_divided_by_10": was_divided})
+        if len(pincode) == 6:
+            unique_pincodes.add(pincode)
+
+    records = []
+    if unique_pincodes:
+        records = (
+            db.query(PincodeService)
+            .filter(PincodeService.pincode.in_(list(unique_pincodes)))
+            .order_by(PincodeService.pincode.asc(), PincodeService.active.desc(), PincodeService.courier.asc())
+            .all()
+        )
+
+    pincode_map: dict[str, list[PincodeService]] = {}
+    for r in records:
+        pincode_map.setdefault(r.pincode, []).append(r)
+
+    items = []
+    matched_count = 0
+    for item in resolved_items:
+        p = item["resolved_pincode"]
+        services = pincode_map.get(p, [])
+        if services:
+            matched_count += 1
+        items.append(
+            {
+                "query": item["query"],
+                "resolved_pincode": p,
+                "was_divided_by_10": item["was_divided_by_10"],
+                "results": services,
+            }
+        )
+
+    return {
+        "total_queries": len(resolved_items),
+        "matched_queries": matched_count,
+        "items": items,
+    }
+
+
+def toggle_pincode_service_active(db: Session, service_id: int, active: bool | None = None) -> PincodeService:
+    record = db.get(PincodeService, service_id)
+    if not record:
+        raise HTTPException(status_code=404, detail=f"Pincode record #{service_id} not found")
+    record.active = (not record.active) if active is None else active
+    db.commit()
+    db.refresh(record)
+    return record
+
+
+def set_pincode_all_active(db: Session, pincode_input: str, active: bool) -> list[PincodeService]:
+    pincode, _ = resolve_pincode_query(pincode_input)
+    if len(pincode) != 6:
+        raise HTTPException(status_code=400, detail="Pincode must resolve to 6 digits")
+    records = db.query(PincodeService).filter(PincodeService.pincode == pincode).all()
+    if not records:
+        raise HTTPException(status_code=404, detail=f"No courier records found for pincode {pincode}")
+    for r in records:
+        r.active = active
+    db.commit()
+    for r in records:
+        db.refresh(r)
+    return records
+
+
+def export_pincode_services_excel(db: Session) -> BytesIO:
+    records = db.query(PincodeService).order_by(PincodeService.pincode.asc(), PincodeService.courier.asc()).all()
+    rows = []
+    for idx, r in enumerate(records, start=1):
+        rows.append(
+            {
+                "sNo": idx,
+                "date": r.service_date.isoformat() if r.service_date else "",
+                "pincode": r.pincode,
+                "state": r.state or "",
+                "city": r.city or "",
+                "zone": r.zone or "",
+                "active": r.active,
+                "warehouse": r.warehouse or "",
+                "courier": r.courier or "",
+            }
+        )
+    df = pd.DataFrame(rows, columns=EXPECTED_HEADERS)
+    buffer = BytesIO()
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name="PincodeServices")
+    buffer.seek(0)
+    return buffer

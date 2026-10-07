@@ -139,7 +139,34 @@ class PincodeServiceRead(BaseModel):
 class PincodeSearchResponse(BaseModel):
     query: str
     pincode: str
+    was_divided_by_10: bool = False
     results: list[PincodeServiceRead]
+
+
+class BulkPincodeSearchRequest(BaseModel):
+    queries: list[str]
+
+
+class PincodeBulkSearchResultItem(BaseModel):
+    query: str
+    resolved_pincode: str
+    was_divided_by_10: bool = False
+    results: list[PincodeServiceRead]
+
+
+class PincodeBulkSearchResponse(BaseModel):
+    total_queries: int
+    matched_queries: int
+    items: list[PincodeBulkSearchResultItem]
+
+
+class PincodeToggleRequest(BaseModel):
+    active: bool | None = None
+
+
+class PincodeBulkToggleRequest(BaseModel):
+    pincode: str
+    active: bool
 
 
 class SettingUpdate(BaseModel):

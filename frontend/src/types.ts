@@ -51,6 +51,26 @@ export interface PincodeService {
   source_file: string | null;
 }
 
+export interface PincodeSearchResponse {
+  query: string;
+  pincode: string;
+  was_divided_by_10: boolean;
+  results: PincodeService[];
+}
+
+export interface PincodeBulkSearchResultItem {
+  query: string;
+  resolved_pincode: string;
+  was_divided_by_10: boolean;
+  results: PincodeService[];
+}
+
+export interface PincodeBulkSearchResponse {
+  total_queries: number;
+  matched_queries: number;
+  items: PincodeBulkSearchResultItem[];
+}
+
 export interface Dashboard {
   total_orders: number;
   delivered: number;
