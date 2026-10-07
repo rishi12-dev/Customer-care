@@ -15,6 +15,11 @@ def create_schema() -> None:
     if "avatar_data_url" not in columns:
         with engine.begin() as connection:
             connection.execute(text("ALTER TABLE users ADD COLUMN avatar_data_url TEXT"))
+    pincode_columns = {column["name"] for column in inspect(engine).get_columns("pincode_services")}
+    if "s_no" not in pincode_columns:
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TABLE pincode_services ADD COLUMN s_no INTEGER"))
+            connection.execute(text("UPDATE pincode_services SET s_no = id WHERE s_no IS NULL"))
 
 
 def seed_initial_data(db: Session) -> None:

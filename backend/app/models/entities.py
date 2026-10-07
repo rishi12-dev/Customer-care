@@ -68,6 +68,7 @@ class PincodeService(Base):
     __tablename__ = "pincode_services"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    s_no: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     pincode: Mapped[str] = mapped_column(String(12), nullable=False, index=True)
     state: Mapped[str | None] = mapped_column(String(120), index=True)
     city: Mapped[str | None] = mapped_column(String(160), index=True)

@@ -1,6 +1,9 @@
 import { FormEvent, useState } from "react";
 import {
+  Calculator,
+  Check,
   CheckCircle2,
+  Copy,
   Download,
   FileSpreadsheet,
   Filter,
@@ -25,7 +28,6 @@ import { Input } from "../components/ui/Input";
 import { useAuth } from "../context/AuthContext";
 import type {
   PincodeBulkSearchResponse,
-  PincodeBulkSearchResultItem,
   PincodeSearchResponse,
   PincodeService,
 } from "../types";
@@ -47,12 +49,20 @@ export function PincodePage() {
   const [singleResult, setSingleResult] = useState<{
     query: string;
     pincode: string;
+    s_no?: number | null;
+    divided_by_10?: number | null;
+    formula?: string | null;
+    page_number?: number | null;
     wasDivided: boolean;
     services: PincodeService[];
   } | null>(null);
   const [message, setMessage] = useState("");
   const [notice, setNotice] = useState<"wrong" | "empty" | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // Quick Standalone Serial Number /10 Calculator
+  const [calcInput, setCalcInput] = useState("167");
+  const [copiedValue, setCopiedValue] = useState<string | null>(null);
 
   // Bulk Search State
   const [bulkInput, setBulkInput] = useState("");
@@ -75,25 +85,27 @@ export function PincodePage() {
   const [uploadMessage, setUploadMessage] = useState("");
   const [uploadBusy, setUploadBusy] = useState(false);
 
-  // Helper to preview live what will happen to the entered query
-  const cleanQueryDigits = query.replace(/\D/g, "");
-  const isQueryAutoDivided = cleanQueryDigits.length === 7;
-  const livePreviewPincode =
-    cleanQueryDigits.length >= 7
-      ? cleanQueryDigits.slice(0, 6)
-      : cleanQueryDigits.length === 6
-      ? cleanQueryDigits
-      : "";
+  // Helper calculation for quick standalone calculator
+  const calcDigits = calcInput.replace(/\D/g, "");
+  const calcNum = calcDigits ? parseInt(calcDigits, 10) : 0;
+  const calcDivided = calcNum ? (calcNum / 10).toFixed(1) : "0.0";
+  const calcPage = calcNum ? Math.ceil(calcNum / 10) : 0;
+
+  function copyToClipboard(text: string, label: string) {
+    navigator.clipboard.writeText(text);
+    setCopiedValue(label);
+    setTimeout(() => setCopiedValue(null), 2500);
+  }
 
   async function handleSingleSubmit(event: FormEvent) {
     event.preventDefault();
     const trimmed = query.trim();
     const digits = trimmed.replace(/\D/g, "");
 
-    if (digits.length < 6 || digits.length > 8) {
+    if (!digits) {
       setSingleResult(null);
       setNotice("wrong");
-      setMessage("Pincode ya 7-digit customer care number daalo (jaise 1100010 ya 110001).");
+      setMessage("Pincode ya Serial Number daalo (jaise 600013 ya 167).");
       return;
     }
 
@@ -106,19 +118,46 @@ export function PincodePage() {
       const data = await api<PincodeSearchResponse>(
         `/pincodes/search?q=${encodeURIComponent(trimmed)}`
       );
+
+      // Extract or compute s_no and divided_by_10
+      let s_no = data.s_no;
+      let div_10 = data.divided_by_10;
+      let formula = data.formula;
+      let page_num = data.page_number;
+
+      if (!s_no && data.results.length > 0) {
+        const first = data.results[0];
+        s_no = first.s_no ?? first.id;
+        div_10 = first.divided_by_10 ?? parseFloat((s_no / 10).toFixed(1));
+        formula = first.formula ?? `${s_no} ÷ 10 = ${div_10}`;
+        page_num = first.page_number ?? Math.ceil(s_no / 10);
+      } else if (!s_no && digits && digits.length < 6) {
+        s_no = parseInt(digits, 10);
+        div_10 = parseFloat((s_no / 10).toFixed(1));
+        formula = `${s_no} ÷ 10 = ${div_10}`;
+        page_num = Math.ceil(s_no / 10);
+      }
+
       setSingleResult({
         query: data.query,
         pincode: data.pincode,
+        s_no,
+        divided_by_10: div_10,
+        formula,
+        page_number: page_num,
         wasDivided: data.was_divided_by_10,
         services: data.results,
       });
 
+      // Also sync standalone calculator with this s_no if found
+      if (s_no) {
+        setCalcInput(String(s_no));
+      }
+
       if (data.results.length === 0) {
         setNotice("empty");
         setMessage(
-          `Pincode ${data.pincode} database me nahi mila${
-            data.was_divided_by_10 ? ` (raw: ${trimmed} se /10 karke dhoonda)` : ""
-          }.`
+          `Pincode ${data.pincode || trimmed} database me nahi mila, par /10 value calculate ho gayi hai.`
         );
       } else {
         const activeCount = data.results.filter((s) => s.active).length;
@@ -180,7 +219,6 @@ export function PincodePage() {
         body: JSON.stringify({ active: !currentActive }),
       });
 
-      // Update Single Result if active
       if (singleResult) {
         setSingleResult({
           ...singleResult,
@@ -188,7 +226,6 @@ export function PincodePage() {
         });
       }
 
-      // Update Bulk Results if active
       if (bulkData) {
         setBulkData({
           ...bulkData,
@@ -296,7 +333,6 @@ export function PincodePage() {
     }
   }
 
-  // Filtered items for bulk view
   const filteredBulkItems = (bulkData?.items || []).filter((item) => {
     if (bulkFilter === "all") return true;
     if (bulkFilter === "missing") return item.results.length === 0;
@@ -307,7 +343,7 @@ export function PincodePage() {
 
   return (
     <section className="grid gap-6">
-      {/* Page Header */}
+      {/* Top Header */}
       <div className="flex flex-col justify-between gap-4 rounded-xl border border-border bg-gradient-to-r from-card via-card to-muted/40 p-5 shadow-sm sm:flex-row sm:items-center">
         <div>
           <div className="flex items-center gap-2">
@@ -316,10 +352,10 @@ export function PincodePage() {
             </div>
             <div>
               <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
-                Pincode Number Finder & Activation
+                Pincode & Serial Number /10 Finder
               </h1>
               <p className="text-xs text-muted-foreground sm:text-sm">
-                Customer care raw numbers auto-resolve with <strong>/10</strong> • Check couriers • One-click Activate / Inactive
+                Pincode search karein → Serial No (sNo) milega → <strong>sNo ÷ 10</strong> value turant screen par dekhein!
               </p>
             </div>
           </div>
@@ -374,6 +410,63 @@ export function PincodePage() {
         </div>
       )}
 
+      {/* QUICK INSTANT CALCULATOR BOX (Always available at a glance) */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card className="col-span-1 md:col-span-3 border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-card to-card p-4 shadow-sm">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500/20 text-amber-700 dark:text-amber-300">
+                <Calculator size={22} />
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-foreground sm:text-base">
+                  ⚡ Instant Serial Number ÷ 10 Calculator
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  Agar aapke paas koi bhi Serial Number (sNo) hai, yahan daalein — turant <strong>/10 value</strong> aur <strong>Page number</strong> calculate hoga.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2">
+                <label htmlFor="quick-calc" className="text-xs font-semibold text-muted-foreground">
+                  Serial No:
+                </label>
+                <input
+                  id="quick-calc"
+                  type="number"
+                  value={calcInput}
+                  onChange={(e) => setCalcInput(e.target.value)}
+                  placeholder="e.g. 167"
+                  className="h-10 w-28 rounded-lg border border-border bg-background px-3 text-center text-base font-bold font-mono focus:border-amber-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/15 px-4 py-2">
+                <span className="text-xs text-amber-900 dark:text-amber-200 font-medium">Value (/10):</span>
+                <span className="font-mono text-xl font-extrabold text-amber-900 dark:text-amber-100">
+                  {calcDivided}
+                </span>
+                <span className="rounded bg-amber-500/30 px-2 py-0.5 text-xs font-bold text-amber-900 dark:text-amber-100">
+                  Page {calcPage}
+                </span>
+              </div>
+
+              <Button
+                type="button"
+                size="sm"
+                className="bg-amber-600 text-white hover:bg-amber-700 shadow-sm"
+                onClick={() => copyToClipboard(calcDivided, "calc")}
+              >
+                {copiedValue === "calc" ? <Check size={16} /> : <Copy size={16} />}
+                {copiedValue === "calc" ? "Copied!" : `Copy ${calcDivided}`}
+              </Button>
+            </div>
+          </div>
+        </Card>
+      </div>
+
       {/* Mode Switcher Tabs */}
       <div className="flex border-b border-border">
         <button
@@ -386,7 +479,7 @@ export function PincodePage() {
           }`}
         >
           <Search size={16} />
-          Single Number Finder
+          Pincode / Serial No Lookup
         </button>
 
         <button
@@ -418,9 +511,8 @@ export function PincodePage() {
                       if (notice) setNotice(null);
                       if (message) setMessage("");
                     }}
-                    inputMode="numeric"
-                    placeholder="Enter customer care number (e.g. 1100010 or 110001)"
-                    className="pr-28 text-base"
+                    placeholder="Enter Pincode (e.g. 600013) or Serial Number (e.g. 167)"
+                    className="pr-24 text-base font-mono"
                     required
                   />
                   {query && (
@@ -439,33 +531,28 @@ export function PincodePage() {
                   )}
                 </div>
 
-                <Button disabled={busy} type="submit" className="min-w-[130px]">
+                <Button disabled={busy} type="submit" className="min-w-[150px]">
                   <Search size={18} />
-                  {busy ? "Searching..." : "Find Pincode"}
+                  {busy ? "Searching..." : "Search & Calculate"}
                 </Button>
               </div>
 
-              {/* Dynamic Helper / Real-time Resolution Pill */}
-              {query && cleanQueryDigits.length >= 6 && (
-                <div className="flex flex-wrap items-center gap-2 text-xs">
-                  {isQueryAutoDivided ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 font-semibold text-amber-700 dark:text-amber-400">
-                      <Zap size={14} className="animate-pulse" />
-                      Auto /10 Detected: Input <strong>{query}</strong> will find 6-digit Pincode{" "}
-                      <strong className="underline underline-offset-2">{livePreviewPincode}</strong>
-                    </span>
-                  ) : cleanQueryDigits.length === 6 ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-500/30 bg-blue-500/10 px-3 py-1 font-medium text-blue-700 dark:text-blue-400">
-                      <CheckCircle2 size={14} />
-                      Standard 6-digit Pincode: <strong>{cleanQueryDigits}</strong>
-                    </span>
-                  ) : (
-                    <span className="text-muted-foreground">
-                      Searching first 6 digits: <strong>{livePreviewPincode}</strong>
-                    </span>
-                  )}
-                </div>
-              )}
+              {/* Quick Suggestion buttons */}
+              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span>Quick tests:</span>
+                {["600013", "167", "361002", "110001", "742404"].map((sample) => (
+                  <button
+                    key={sample}
+                    type="button"
+                    onClick={() => {
+                      setQuery(sample);
+                    }}
+                    className="rounded border border-border bg-muted/60 px-2 py-0.5 font-mono font-medium hover:border-primary hover:text-primary transition-colors"
+                  >
+                    {sample}
+                  </button>
+                ))}
+              </div>
             </form>
 
             {message && !busy && (
@@ -473,150 +560,238 @@ export function PincodePage() {
             )}
           </Card>
 
-          {busy && <PincodeDanceLoader label="Searching pincode services..." />}
+          {busy && <PincodeDanceLoader label="Searching and calculating /10..." />}
 
           {!busy && notice && (
             <StickerNotice
               variant={notice}
-              message={notice === "empty" ? "No pincode record found in database." : message}
+              message={notice === "empty" ? "No record found in database." : message}
             />
           )}
 
-          {/* Single Result Table */}
-          {!busy && singleResult && singleResult.services.length > 0 && (
-            <Card className="overflow-hidden p-0 shadow-md">
-              {/* Result Meta Banner */}
-              <div className="flex flex-col justify-between gap-4 border-b border-border bg-muted/40 p-4 sm:flex-row sm:items-center">
-                <div className="flex flex-wrap items-center gap-3">
-                  <div className="rounded-lg bg-primary px-3 py-1.5 text-lg font-bold text-primary-foreground shadow-sm">
-                    PIN: {singleResult.pincode}
-                  </div>
-
-                  {singleResult.wasDivided && (
-                    <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/15 px-3 py-1 text-xs font-semibold text-amber-800 dark:text-amber-300">
-                      <Zap size={13} />
-                      /10 Auto Applied (Received: {singleResult.query})
-                    </span>
-                  )}
-
-                  <div className="text-xs text-muted-foreground">
-                    <span>
-                      {singleResult.services[0]?.city ?? "Unknown City"},{" "}
-                      {singleResult.services[0]?.state ?? "Unknown State"}
-                    </span>
-                    {singleResult.services[0]?.zone && (
-                      <span className="ml-2 rounded bg-muted px-1.5 py-0.5 font-medium">
-                        Zone: {singleResult.services[0].zone}
+          {/* PROMINENT /10 RESULT HERO BANNER */}
+          {!busy && singleResult && (singleResult.divided_by_10 !== null || singleResult.services.length > 0) && (
+            <div className="grid gap-6">
+              {/* Highlight Hero Card with /10 Value */}
+              <div className="rounded-2xl border-2 border-primary/40 bg-gradient-to-br from-card via-card to-primary/5 p-5 shadow-lg">
+                <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-center">
+                  <div className="grid gap-2">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="rounded-lg bg-primary px-3 py-1 font-mono text-xl font-extrabold text-primary-foreground shadow-sm">
+                        PIN: {singleResult.pincode || singleResult.query}
                       </span>
-                    )}
+
+                      {singleResult.s_no && (
+                        <span className="rounded-lg border border-border bg-muted px-3 py-1 font-mono text-sm font-bold text-foreground">
+                          Serial No (sNo): {singleResult.s_no}
+                        </span>
+                      )}
+
+                      {singleResult.wasDivided && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/15 px-3 py-1 text-xs font-semibold text-amber-800 dark:text-amber-300">
+                          <Zap size={13} />
+                          /10 Auto Applied
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="text-xs text-muted-foreground">
+                      {singleResult.services[0] ? (
+                        <span>
+                          {singleResult.services[0].city ?? "Unknown City"},{" "}
+                          {singleResult.services[0].state ?? "Unknown State"} • Warehouse:{" "}
+                          <strong>{singleResult.services[0].warehouse || "Default"}</strong>
+                        </span>
+                      ) : (
+                        <span>Serial Number Calculation</span>
+                      )}
+                    </div>
                   </div>
+
+                  {/* THE EXACT /10 VALUE PROMINENT DISPLAY */}
+                  {singleResult.divided_by_10 !== null && (
+                    <div className="flex flex-wrap items-center gap-4 rounded-xl border-2 border-emerald-500/40 bg-emerald-500/10 p-4 shadow-sm">
+                      <div>
+                        <div className="text-[11px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
+                          🎯 Value After /10 ({singleResult.formula || `${singleResult.s_no} ÷ 10`}):
+                        </div>
+                        <div className="flex items-baseline gap-2">
+                          <span className="font-mono text-3xl font-extrabold text-emerald-700 dark:text-emerald-300">
+                            {singleResult.divided_by_10}
+                          </span>
+                          {singleResult.page_number && (
+                            <span className="rounded-md bg-emerald-600/20 px-2 py-0.5 text-xs font-bold text-emerald-800 dark:text-emerald-200">
+                              Page {singleResult.page_number}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col gap-1.5">
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="bg-emerald-600 text-white hover:bg-emerald-700 font-bold shadow-md"
+                          onClick={() =>
+                            copyToClipboard(String(singleResult.divided_by_10), "hero-val")
+                          }
+                        >
+                          {copiedValue === "hero-val" ? <Check size={16} /> : <Copy size={16} />}
+                          {copiedValue === "hero-val" ? "Copied!" : `Copy ${singleResult.divided_by_10}`}
+                        </Button>
+
+                        {singleResult.s_no && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              copyToClipboard(String(singleResult.s_no), "hero-sno")
+                            }
+                            className="text-[11px] font-semibold text-emerald-800 dark:text-emerald-300 hover:underline"
+                          >
+                            {copiedValue === "hero-sno" ? "Copied sNo!" : `Copy sNo: ${singleResult.s_no}`}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                {/* Bulk Actions for this Pincode */}
-                <div className="flex items-center gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="border-emerald-500/40 text-emerald-700 hover:bg-emerald-500/10 dark:text-emerald-400"
-                    disabled={actionBusyId === `all-${singleResult.pincode}`}
-                    onClick={() => toggleAllCouriers(singleResult.pincode, true)}
-                    title="Activate all couriers for this pincode"
-                  >
-                    <CheckCircle2 size={15} />
-                    Activate All Couriers
-                  </Button>
+                {/* Bulk Actions for this Pincode if couriers found */}
+                {singleResult.services.length > 0 && (
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+                    <div className="text-xs font-medium text-muted-foreground">
+                      {singleResult.services.length} courier partners linked to this pincode.
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-emerald-500/40 text-emerald-700 hover:bg-emerald-500/10 dark:text-emerald-400"
+                        disabled={actionBusyId === `all-${singleResult.pincode}`}
+                        onClick={() => toggleAllCouriers(singleResult.pincode, true)}
+                      >
+                        <CheckCircle2 size={15} />
+                        Activate All Couriers
+                      </Button>
 
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="border-red-500/40 text-red-700 hover:bg-red-500/10 dark:text-red-400"
-                    disabled={actionBusyId === `all-${singleResult.pincode}`}
-                    onClick={() => toggleAllCouriers(singleResult.pincode, false)}
-                    title="Deactivate all couriers for this pincode"
-                  >
-                    <Power size={15} />
-                    Deactivate All
-                  </Button>
-                </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-red-500/40 text-red-700 hover:bg-red-500/10 dark:text-red-400"
+                        disabled={actionBusyId === `all-${singleResult.pincode}`}
+                        onClick={() => toggleAllCouriers(singleResult.pincode, false)}
+                      >
+                        <Power size={15} />
+                        Deactivate All
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Courier Table */}
-              <div className="overflow-auto">
-                <table className="w-full min-w-[760px] text-left text-sm">
-                  <thead className="bg-muted text-xs uppercase tracking-wider text-muted-foreground">
-                    <tr>
-                      <th className="p-3.5">Courier Partner</th>
-                      <th className="p-3.5">Warehouse</th>
-                      <th className="p-3.5">Service Status</th>
-                      <th className="p-3.5">City / State</th>
-                      <th className="p-3.5 text-right">Quick Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {singleResult.services.map((item) => {
-                      const isUpdating = actionBusyId === item.id;
-                      return (
-                        <tr
-                          key={item.id}
-                          className="transition-colors hover:bg-muted/30"
-                        >
-                          <td className="p-3.5 font-semibold text-foreground">
-                            {item.courier}
-                          </td>
-                          <td className="p-3.5 text-muted-foreground">
-                            {item.warehouse || "Default Warehouse"}
-                          </td>
-                          <td className="p-3.5">
-                            <span
-                              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${
-                                item.active
-                                  ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
-                                  : "bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-300"
-                              }`}
-                            >
-                              <span
-                                className={`h-2 w-2 rounded-full ${
-                                  item.active ? "bg-emerald-500" : "bg-red-500"
-                                }`}
-                              />
-                              {item.active ? "ACTIVE" : "INACTIVE"}
-                            </span>
-                          </td>
-                          <td className="p-3.5 text-xs text-muted-foreground">
-                            {item.city}, {item.state}
-                          </td>
-                          <td className="p-3.5 text-right">
-                            <Button
-                              size="sm"
-                              disabled={isUpdating}
-                              variant={item.active ? "outline" : "default"}
-                              className={
-                                item.active
-                                  ? "border-red-500/30 text-red-600 hover:bg-red-500/10 dark:text-red-400"
-                                  : "bg-emerald-600 text-white hover:bg-emerald-700"
-                              }
-                              onClick={() => toggleCourierActive(item.id, item.active)}
-                            >
-                              {isUpdating ? (
-                                "Updating..."
-                              ) : item.active ? (
-                                <>
-                                  <ToggleRight size={16} /> Mark Inactive
-                                </>
-                              ) : (
-                                <>
-                                  <ToggleLeft size={16} /> Activate Now
-                                </>
-                              )}
-                            </Button>
-                          </td>
+              {singleResult.services.length > 0 && (
+                <Card className="overflow-hidden p-0 shadow-md">
+                  <div className="overflow-auto">
+                    <table className="w-full min-w-[820px] text-left text-sm">
+                      <thead className="bg-muted text-xs uppercase tracking-wider text-muted-foreground">
+                        <tr>
+                          <th className="p-3.5">Courier Partner</th>
+                          <th className="p-3.5">Serial No (sNo)</th>
+                          <th className="p-3.5">sNo ÷ 10 Value</th>
+                          <th className="p-3.5">Warehouse</th>
+                          <th className="p-3.5">Status</th>
+                          <th className="p-3.5 text-right">Quick Action</th>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {singleResult.services.map((item) => {
+                          const isUpdating = actionBusyId === item.id;
+                          const itemSno = item.s_no ?? item.id;
+                          const itemDiv = item.divided_by_10 ?? parseFloat((itemSno / 10).toFixed(1));
+                          return (
+                            <tr
+                              key={item.id}
+                              className="transition-colors hover:bg-muted/30"
+                            >
+                              <td className="p-3.5 font-semibold text-foreground">
+                                {item.courier}
+                              </td>
+                              <td className="p-3.5 font-mono font-bold text-foreground">
+                                {itemSno}
+                              </td>
+                              <td className="p-3.5">
+                                <div className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 font-mono font-extrabold text-emerald-800 dark:text-emerald-300">
+                                  <span>{itemDiv}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      copyToClipboard(String(itemDiv), `row-${item.id}`)
+                                    }
+                                    className="opacity-70 hover:opacity-100"
+                                    title="Copy this /10 value"
+                                  >
+                                    {copiedValue === `row-${item.id}` ? (
+                                      <Check size={13} />
+                                    ) : (
+                                      <Copy size={13} />
+                                    )}
+                                  </button>
+                                </div>
+                              </td>
+                              <td className="p-3.5 text-muted-foreground text-xs">
+                                {item.warehouse || "Default Warehouse"}
+                              </td>
+                              <td className="p-3.5">
+                                <span
+                                  className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${
+                                    item.active
+                                      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
+                                      : "bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-300"
+                                  }`}
+                                >
+                                  <span
+                                    className={`h-2 w-2 rounded-full ${
+                                      item.active ? "bg-emerald-500" : "bg-red-500"
+                                    }`}
+                                  />
+                                  {item.active ? "ACTIVE" : "INACTIVE"}
+                                </span>
+                              </td>
+                              <td className="p-3.5 text-right">
+                                <Button
+                                  size="sm"
+                                  disabled={isUpdating}
+                                  variant={item.active ? "outline" : "default"}
+                                  className={
+                                    item.active
+                                      ? "border-red-500/30 text-red-600 hover:bg-red-500/10 dark:text-red-400"
+                                      : "bg-emerald-600 text-white hover:bg-emerald-700"
+                                  }
+                                  onClick={() => toggleCourierActive(item.id, item.active)}
+                                >
+                                  {isUpdating ? (
+                                    "Updating..."
+                                  ) : item.active ? (
+                                    <>
+                                      <ToggleRight size={16} /> Mark Inactive
+                                    </>
+                                  ) : (
+                                    <>
+                                      <ToggleLeft size={16} /> Activate Now
+                                    </>
+                                  )}
+                                </Button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              )}
+            </div>
           )}
         </div>
       )}
@@ -631,17 +806,17 @@ export function PincodePage() {
                   htmlFor="bulk-pincode-input"
                   className="mb-1 block text-sm font-semibold text-foreground"
                 >
-                  Paste Multiple Numbers / Pincodes
+                  Paste Multiple Pincodes or Serial Numbers
                 </label>
                 <p className="mb-2 text-xs text-muted-foreground">
-                  Paste raw 7-digit numbers (e.g. 1100010, 3610020) or 6-digit pincodes. Separated by commas, spaces, or newlines.
+                  Paste pincodes (e.g. 600013, 361002) or serial numbers (e.g. 167, 168). Separated by commas, spaces, or newlines.
                 </p>
                 <textarea
                   id="bulk-pincode-input"
                   rows={4}
                   value={bulkInput}
                   onChange={(e) => setBulkInput(e.target.value)}
-                  placeholder="Example:&#10;1100010&#10;3610020&#10;396375&#10;7424040, 742402"
+                  placeholder="Example:&#10;600013&#10;167&#10;361002&#10;742404"
                   className="w-full rounded-md border border-border bg-background p-3 text-sm font-mono focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                   required
                 />
@@ -654,7 +829,7 @@ export function PincodePage() {
                     size="sm"
                     variant="outline"
                     onClick={() => {
-                      setBulkInput("3610020\n396375\n7424040\n742402\n999999");
+                      setBulkInput("600013\n167\n361002\n742404");
                     }}
                   >
                     <Sparkles size={14} /> Paste Sample
@@ -675,7 +850,7 @@ export function PincodePage() {
 
                 <Button type="submit" disabled={bulkBusy} className="min-w-[140px]">
                   <Layers size={18} />
-                  {bulkBusy ? "Processing..." : "Find All Pincodes"}
+                  {bulkBusy ? "Processing..." : "Calculate All /10"}
                 </Button>
               </div>
 
@@ -685,7 +860,7 @@ export function PincodePage() {
             </form>
           </Card>
 
-          {bulkBusy && <PincodeDanceLoader label="Searching multiple pincodes..." />}
+          {bulkBusy && <PincodeDanceLoader label="Calculating multiple numbers..." />}
 
           {/* Bulk Results Summary & Filter */}
           {!bulkBusy && bulkData && (
@@ -703,7 +878,6 @@ export function PincodePage() {
                   </span>
                 </div>
 
-                {/* Filter Pills */}
                 <div className="flex items-center gap-1 text-xs">
                   <Filter size={14} className="text-muted-foreground mr-1" />
                   {(["all", "active", "inactive", "missing"] as const).map((filterKey) => (
@@ -729,6 +903,8 @@ export function PincodePage() {
                   const hasService = item.results.length > 0;
                   const activeCouriers = item.results.filter((r) => r.active);
                   const isAllActive = hasService && activeCouriers.length === item.results.length;
+                  const firstSno = hasService ? (item.results[0].s_no ?? item.results[0].id) : null;
+                  const divVal = firstSno ? (firstSno / 10).toFixed(1) : null;
 
                   return (
                     <Card key={`${item.query}-${idx}`} className="p-4 transition-all hover:border-primary/40">
@@ -739,12 +915,13 @@ export function PincodePage() {
                           </span>
 
                           <span className="text-sm font-bold text-foreground">
-                            → PIN: {item.resolved_pincode || "Invalid"}
+                            → PIN: {item.resolved_pincode || "N/A"}
                           </span>
 
-                          {item.was_divided_by_10 && (
-                            <span className="inline-flex items-center gap-1 rounded bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold text-amber-700 dark:text-amber-400">
-                              <Zap size={11} /> /10 Auto
+                          {firstSno && divVal && (
+                            <span className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-xs font-mono font-extrabold text-emerald-800 dark:text-emerald-300">
+                              <Zap size={13} />
+                              sNo {firstSno} ÷ 10 = {divVal} (Page {Math.ceil(firstSno / 10)})
                             </span>
                           )}
 
@@ -756,7 +933,7 @@ export function PincodePage() {
                                   : "bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-300"
                               }`}
                             >
-                              {activeCouriers.length}/{item.results.length} Active Couriers
+                              {activeCouriers.length}/{item.results.length} Active
                             </span>
                           ) : (
                             <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-400">
@@ -784,48 +961,45 @@ export function PincodePage() {
                         )}
                       </div>
 
-                      {/* Couriers Grid for this Pincode */}
                       {hasService && (
                         <div className="mt-3 flex flex-wrap gap-2 pt-3 border-t border-border">
-                          {item.results.map((c) => (
-                            <div
-                              key={c.id}
-                              className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs ${
-                                c.active
-                                  ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-900 dark:text-emerald-300"
-                                  : "border-border bg-muted/40 text-muted-foreground"
-                              }`}
-                            >
-                              <span className="font-semibold">{c.courier}</span>
-                              <span className="text-[11px] opacity-75">
-                                ({c.warehouse || "Warehouse"})
-                              </span>
-                              <button
-                                type="button"
-                                disabled={actionBusyId === c.id}
-                                onClick={() => toggleCourierActive(c.id, c.active)}
-                                className={`ml-1 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase transition-colors ${
+                          {item.results.map((c) => {
+                            const cSno = c.s_no ?? c.id;
+                            const cDiv = c.divided_by_10 ?? parseFloat((cSno / 10).toFixed(1));
+                            return (
+                              <div
+                                key={c.id}
+                                className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs ${
                                   c.active
-                                    ? "bg-emerald-600 text-white hover:bg-red-600"
-                                    : "bg-muted-foreground/20 hover:bg-emerald-600 hover:text-white"
+                                    ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-900 dark:text-emerald-300"
+                                    : "border-border bg-muted/40 text-muted-foreground"
                                 }`}
-                                title={c.active ? "Click to Deactivate" : "Click to Activate"}
                               >
-                                {actionBusyId === c.id ? "..." : c.active ? "Active" : "Activate"}
-                              </button>
-                            </div>
-                          ))}
+                                <span className="font-semibold">{c.courier}</span>
+                                <span className="font-mono font-bold text-emerald-700 dark:text-emerald-400">
+                                  (sNo {cSno} → {cDiv})
+                                </span>
+                                <button
+                                  type="button"
+                                  disabled={actionBusyId === c.id}
+                                  onClick={() => toggleCourierActive(c.id, c.active)}
+                                  className={`ml-1 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase transition-colors ${
+                                    c.active
+                                      ? "bg-emerald-600 text-white hover:bg-red-600"
+                                      : "bg-muted-foreground/20 hover:bg-emerald-600 hover:text-white"
+                                  }`}
+                                  title={c.active ? "Click to Deactivate" : "Click to Activate"}
+                                >
+                                  {actionBusyId === c.id ? "..." : c.active ? "Active" : "Activate"}
+                                </button>
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
                     </Card>
                   );
                 })}
-
-                {filteredBulkItems.length === 0 && (
-                  <p className="text-center text-sm text-muted-foreground py-6">
-                    Is filter ke sath koi record nahi mila.
-                  </p>
-                )}
               </div>
             </div>
           )}

@@ -125,6 +125,10 @@ class PincodeServiceRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    s_no: int | None = None
+    divided_by_10: float | None = None
+    formula: str | None = None
+    page_number: int | None = None
     pincode: str
     state: str | None
     city: str | None
@@ -139,6 +143,10 @@ class PincodeServiceRead(BaseModel):
 class PincodeSearchResponse(BaseModel):
     query: str
     pincode: str
+    s_no: int | None = None
+    divided_by_10: float | None = None
+    formula: str | None = None
+    page_number: int | None = None
     was_divided_by_10: bool = False
     results: list[PincodeServiceRead]
 

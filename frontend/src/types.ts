@@ -40,6 +40,10 @@ export interface NdrTrackingRecord {
 
 export interface PincodeService {
   id: number;
+  s_no?: number | null;
+  divided_by_10?: number | null;
+  formula?: string | null;
+  page_number?: number | null;
   pincode: string;
   state: string | null;
   city: string | null;
@@ -54,6 +58,10 @@ export interface PincodeService {
 export interface PincodeSearchResponse {
   query: string;
   pincode: string;
+  s_no?: number | null;
+  divided_by_10?: number | null;
+  formula?: string | null;
+  page_number?: number | null;
   was_divided_by_10: boolean;
   results: PincodeService[];
 }

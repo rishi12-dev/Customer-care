@@ -109,15 +109,24 @@ def preview_pincode_files(files: list[tuple[str, bytes]]) -> dict:
     return {"headers": headers, "rows": rows, "records": records, "errors": errors, "warnings": warnings, "valid": not errors}
 
 
+import math
+
+
 def _rows_from_frame(frame: pd.DataFrame, filename: str) -> list[dict]:
     rows: list[dict] = []
-    for _, row in frame.iterrows():
+    for idx, row in frame.iterrows():
         pincode = normalize_pincode(row["pincode"])
         courier = str(_clean(row["courier"]) or "").strip()
         if not pincode or not courier:
             continue
+        raw_s_no = row.get("sNo") if "sNo" in row else None
+        try:
+            s_no = int(raw_s_no) if pd.notna(raw_s_no) else (idx + 1)
+        except (ValueError, TypeError):
+            s_no = idx + 1
         rows.append(
             {
+                "s_no": s_no,
                 "pincode": pincode,
                 "state": _clean(row["state"]),
                 "city": _clean(row["city"]),
@@ -166,17 +175,90 @@ def replace_pincode_services(db: Session, files: list[tuple[str, bytes]]) -> dic
     return {"records": inserted, "duration_ms": int((perf_counter() - started) * 1000), "errors": [], "warnings": warnings}
 
 
+def _enrich_service_dict(r: PincodeService) -> dict:
+    row_s_no = r.s_no if r.s_no is not None else r.id
+    row_div = round(row_s_no / 10.0, 2)
+    return {
+        "id": r.id,
+        "s_no": row_s_no,
+        "divided_by_10": row_div,
+        "formula": f"{row_s_no} ÷ 10 = {row_div}",
+        "page_number": math.ceil(row_s_no / 10.0),
+        "pincode": r.pincode,
+        "state": r.state,
+        "city": r.city,
+        "zone": r.zone,
+        "active": r.active,
+        "warehouse": r.warehouse,
+        "courier": r.courier,
+        "service_date": r.service_date,
+        "source_file": r.source_file,
+    }
+
+
 def search_pincode_services(db: Session, query: str) -> dict:
-    resolved_pincode, was_divided = resolve_pincode_query(query)
-    if len(resolved_pincode) != 6:
-        return {"query": query, "pincode": resolved_pincode, "was_divided_by_10": was_divided, "results": []}
-    rows = (
-        db.query(PincodeService)
-        .filter(PincodeService.pincode == resolved_pincode)
-        .order_by(PincodeService.active.desc(), PincodeService.courier.asc(), PincodeService.warehouse.asc())
-        .all()
-    )
-    return {"query": query, "pincode": resolved_pincode, "was_divided_by_10": was_divided, "results": rows}
+    raw_query = str(query).strip()
+    digits = re.sub(r"\D", "", raw_query)
+
+    resolved_pincode, was_divided = resolve_pincode_query(raw_query)
+
+    rows: list[PincodeService] = []
+    if len(resolved_pincode) == 6:
+        rows = (
+            db.query(PincodeService)
+            .filter(PincodeService.pincode == resolved_pincode)
+            .order_by(PincodeService.active.desc(), PincodeService.courier.asc(), PincodeService.warehouse.asc())
+            .all()
+        )
+
+    # If no records and user entered a number < 6 digits, check if they entered an sNo directly
+    if not rows and digits and len(digits) < 6:
+        try:
+            num = int(digits)
+            rows = (
+                db.query(PincodeService)
+                .filter((PincodeService.s_no == num) | (PincodeService.id == num))
+                .order_by(PincodeService.active.desc(), PincodeService.courier.asc())
+                .all()
+            )
+            if rows:
+                resolved_pincode = rows[0].pincode
+        except ValueError:
+            pass
+
+    enriched = [_enrich_service_dict(r) for r in rows]
+
+    s_no = None
+    divided_val = None
+    formula = None
+    page_num = None
+
+    if enriched:
+        first = enriched[0]
+        s_no = first["s_no"]
+        divided_val = first["divided_by_10"]
+        formula = first["formula"]
+        page_num = first["page_number"]
+    elif digits:
+        try:
+            num = int(digits)
+            s_no = num
+            divided_val = round(num / 10.0, 2)
+            formula = f"{num} ÷ 10 = {divided_val}"
+            page_num = math.ceil(num / 10.0)
+        except ValueError:
+            pass
+
+    return {
+        "query": query,
+        "pincode": resolved_pincode,
+        "s_no": s_no,
+        "divided_by_10": divided_val,
+        "formula": formula,
+        "page_number": page_num,
+        "was_divided_by_10": was_divided,
+        "results": enriched,
+    }
 
 
 def bulk_search_pincode_services(db: Session, raw_queries: list[str]) -> dict:
@@ -201,9 +283,9 @@ def bulk_search_pincode_services(db: Session, raw_queries: list[str]) -> dict:
             .all()
         )
 
-    pincode_map: dict[str, list[PincodeService]] = {}
+    pincode_map: dict[str, list[dict]] = {}
     for r in records:
-        pincode_map.setdefault(r.pincode, []).append(r)
+        pincode_map.setdefault(r.pincode, []).append(_enrich_service_dict(r))
 
     items = []
     matched_count = 0
