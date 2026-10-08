@@ -53,6 +53,7 @@ export function PincodePage() {
     divided_by_10?: number | null;
     formula?: string | null;
     page_number?: number | null;
+    row_on_page?: number | null;
     wasDivided: boolean;
     services: PincodeService[];
   } | null>(null);
@@ -90,6 +91,7 @@ export function PincodePage() {
   const calcNum = calcDigits ? parseInt(calcDigits, 10) : 0;
   const calcDivided = calcNum ? (calcNum / 10).toFixed(1) : "0.0";
   const calcPage = calcNum ? Math.ceil(calcNum / 10) : 0;
+  const calcRowOnPage = calcNum ? ((calcNum - 1) % 10) + 1 : 0;
 
   function copyToClipboard(text: string, label: string) {
     navigator.clipboard.writeText(text);
@@ -119,11 +121,12 @@ export function PincodePage() {
         `/pincodes/search?q=${encodeURIComponent(trimmed)}`
       );
 
-      // Extract or compute s_no and divided_by_10
+      // Extract or compute s_no, divided_by_10, page_number, and row_on_page
       let s_no = data.s_no;
       let div_10 = data.divided_by_10;
       let formula = data.formula;
       let page_num = data.page_number;
+      let row_on_page = data.row_on_page;
 
       if (!s_no && data.results.length > 0) {
         const first = data.results[0];
@@ -131,11 +134,13 @@ export function PincodePage() {
         div_10 = first.divided_by_10 ?? parseFloat((s_no / 10).toFixed(1));
         formula = first.formula ?? `${s_no} ÷ 10 = ${div_10}`;
         page_num = first.page_number ?? Math.ceil(s_no / 10);
+        row_on_page = first.row_on_page ?? (((s_no - 1) % 10) + 1);
       } else if (!s_no && digits && digits.length < 6) {
         s_no = parseInt(digits, 10);
         div_10 = parseFloat((s_no / 10).toFixed(1));
         formula = `${s_no} ÷ 10 = ${div_10}`;
         page_num = Math.ceil(s_no / 10);
+        row_on_page = ((s_no - 1) % 10) + 1;
       }
 
       setSingleResult({
@@ -145,6 +150,7 @@ export function PincodePage() {
         divided_by_10: div_10,
         formula,
         page_number: page_num,
+        row_on_page,
         wasDivided: data.was_divided_by_10,
         services: data.results,
       });
@@ -413,7 +419,7 @@ export function PincodePage() {
       {/* QUICK INSTANT CALCULATOR BOX (Always available at a glance) */}
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="col-span-1 md:col-span-3 border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-card to-card p-4 shadow-sm">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500/20 text-amber-700 dark:text-amber-300">
                 <Calculator size={22} />
@@ -423,13 +429,13 @@ export function PincodePage() {
                   ⚡ Instant Serial Number ÷ 10 Calculator
                 </h2>
                 <p className="text-xs text-muted-foreground">
-                  Agar aapke paas koi bhi Serial Number (sNo) hai, yahan daalein — turant <strong>/10 value</strong> aur <strong>Page number</strong> calculate hoga.
+                  Serial No daalein → System me 10 pincode per page hote hain → Turant <strong>Page Number</strong> aur <strong>/10 value</strong> dekhein.
                 </p>
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <div className="flex items-center gap-1.5">
                 <label htmlFor="quick-calc" className="text-xs font-semibold text-muted-foreground">
                   Serial No:
                 </label>
@@ -439,27 +445,52 @@ export function PincodePage() {
                   value={calcInput}
                   onChange={(e) => setCalcInput(e.target.value)}
                   placeholder="e.g. 167"
-                  className="h-10 w-28 rounded-lg border border-border bg-background px-3 text-center text-base font-bold font-mono focus:border-amber-500 focus:outline-none"
+                  className="h-10 w-24 rounded-lg border border-border bg-background px-2.5 text-center text-base font-bold font-mono focus:border-amber-500 focus:outline-none"
                 />
               </div>
 
-              <div className="flex items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/15 px-4 py-2">
-                <span className="text-xs text-amber-900 dark:text-amber-200 font-medium">Value (/10):</span>
-                <span className="font-mono text-xl font-extrabold text-amber-900 dark:text-amber-100">
-                  {calcDivided}
-                </span>
-                <span className="rounded bg-amber-500/30 px-2 py-0.5 text-xs font-bold text-amber-900 dark:text-amber-100">
+              {/* Target Page in OMS System */}
+              <div className="flex items-center gap-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/15 px-3 py-1.5 shadow-sm">
+                <span className="text-[11px] font-bold text-emerald-900 dark:text-emerald-200">System Page:</span>
+                <span className="font-mono text-base font-extrabold text-emerald-800 dark:text-emerald-200">
                   Page {calcPage}
                 </span>
+                {calcRowOnPage > 0 && (
+                  <span className="rounded bg-emerald-500/25 px-1.5 py-0.5 text-[11px] font-bold text-emerald-950 dark:text-emerald-100">
+                    Row {calcRowOnPage}
+                  </span>
+                )}
               </div>
+
+              {/* /10 Decimal Value */}
+              <div className="flex items-center gap-1.5 rounded-xl border border-amber-500/40 bg-amber-500/15 px-3 py-1.5">
+                <span className="text-[11px] text-amber-900 dark:text-amber-200 font-medium">Value (/10):</span>
+                <span className="font-mono text-base font-extrabold text-amber-900 dark:text-amber-100">
+                  {calcDivided}
+                </span>
+              </div>
+
+              {/* Copy Buttons */}
+              <Button
+                type="button"
+                size="sm"
+                className="bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm font-bold"
+                onClick={() => copyToClipboard(String(calcPage), "calc-page")}
+                title="Copy Page Number for OMS system"
+              >
+                {copiedValue === "calc-page" ? <Check size={15} /> : <Copy size={15} />}
+                {copiedValue === "calc-page" ? "Copied Page!" : `Copy Page ${calcPage}`}
+              </Button>
 
               <Button
                 type="button"
                 size="sm"
-                className="bg-amber-600 text-white hover:bg-amber-700 shadow-sm"
+                variant="outline"
+                className="border-amber-500/40 text-amber-900 hover:bg-amber-500/10 dark:text-amber-200 shadow-sm"
                 onClick={() => copyToClipboard(calcDivided, "calc")}
+                title="Copy exact /10 decimal value"
               >
-                {copiedValue === "calc" ? <Check size={16} /> : <Copy size={16} />}
+                {copiedValue === "calc" ? <Check size={15} /> : <Copy size={15} />}
                 {copiedValue === "calc" ? "Copied!" : `Copy ${calcDivided}`}
               </Button>
             </div>
@@ -608,49 +639,87 @@ export function PincodePage() {
                     </div>
                   </div>
 
-                  {/* THE EXACT /10 VALUE PROMINENT DISPLAY */}
+                  {/* THE EXACT /10 AND SYSTEM PAGE PROMINENT DISPLAY */}
                   {singleResult.divided_by_10 !== null && (
-                    <div className="flex flex-wrap items-center gap-4 rounded-xl border-2 border-emerald-500/40 bg-emerald-500/10 p-4 shadow-sm">
-                      <div>
-                        <div className="text-[11px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
-                          🎯 Value After /10 ({singleResult.formula || `${singleResult.s_no} ÷ 10`}):
-                        </div>
-                        <div className="flex items-baseline gap-2">
-                          <span className="font-mono text-3xl font-extrabold text-emerald-700 dark:text-emerald-300">
-                            {singleResult.divided_by_10}
-                          </span>
-                          {singleResult.page_number && (
-                            <span className="rounded-md bg-emerald-600/20 px-2 py-0.5 text-xs font-bold text-emerald-800 dark:text-emerald-200">
+                    <div className="flex flex-col gap-3 rounded-2xl border-2 border-emerald-500/40 bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-card p-4 shadow-sm">
+                      <div className="flex flex-wrap items-center justify-between gap-4">
+                        {/* System Target Page */}
+                        <div>
+                          <div className="text-[11px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
+                            📄 OMS System Page (10 per page):
+                          </div>
+                          <div className="flex items-baseline gap-2">
+                            <span className="font-mono text-3xl font-extrabold text-emerald-800 dark:text-emerald-200">
                               Page {singleResult.page_number}
                             </span>
-                          )}
+                            {singleResult.row_on_page && (
+                              <span className="rounded-md bg-emerald-600/20 px-2.5 py-0.5 text-xs font-bold text-emerald-900 dark:text-emerald-100">
+                                Row {singleResult.row_on_page}
+                              </span>
+                            )}
+                          </div>
+                          <div className="mt-0.5 text-[11px] text-muted-foreground font-medium">
+                            Formula: {singleResult.formula || `${singleResult.s_no} ÷ 10 = ${singleResult.divided_by_10}`}
+                          </div>
+                        </div>
+
+                        {/* Value /10 */}
+                        <div className="rounded-xl border border-emerald-500/30 bg-background/80 px-3.5 py-2">
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                            Exact Value (/10):
+                          </div>
+                          <div className="font-mono text-2xl font-black text-foreground">
+                            {singleResult.divided_by_10}
+                          </div>
+                        </div>
+
+                        {/* Action Copy Buttons */}
+                        <div className="flex flex-col gap-1.5">
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="bg-emerald-600 text-white hover:bg-emerald-700 font-bold shadow-md"
+                            onClick={() =>
+                              copyToClipboard(String(singleResult.page_number), "hero-page")
+                            }
+                            title="Copy Page number to paste in IndiaShoppe / OMS system"
+                          >
+                            {copiedValue === "hero-page" ? <Check size={16} /> : <Copy size={16} />}
+                            {copiedValue === "hero-page" ? "Copied Page!" : `Copy Page ${singleResult.page_number}`}
+                          </Button>
+
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                copyToClipboard(String(singleResult.divided_by_10), "hero-val")
+                              }
+                              className="text-[11px] font-semibold text-emerald-800 dark:text-emerald-300 hover:underline"
+                            >
+                              {copiedValue === "hero-val" ? "Copied /10!" : `Copy Value: ${singleResult.divided_by_10}`}
+                            </button>
+
+                            {singleResult.s_no && (
+                              <>
+                                <span className="text-muted-foreground text-xs">•</span>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    copyToClipboard(String(singleResult.s_no), "hero-sno")
+                                  }
+                                  className="text-[11px] font-semibold text-muted-foreground hover:text-foreground hover:underline"
+                                >
+                                  {copiedValue === "hero-sno" ? "Copied sNo!" : `sNo: ${singleResult.s_no}`}
+                                </button>
+                              </>
+                            )}
+                          </div>
                         </div>
                       </div>
 
-                      <div className="flex flex-col gap-1.5">
-                        <Button
-                          type="button"
-                          size="sm"
-                          className="bg-emerald-600 text-white hover:bg-emerald-700 font-bold shadow-md"
-                          onClick={() =>
-                            copyToClipboard(String(singleResult.divided_by_10), "hero-val")
-                          }
-                        >
-                          {copiedValue === "hero-val" ? <Check size={16} /> : <Copy size={16} />}
-                          {copiedValue === "hero-val" ? "Copied!" : `Copy ${singleResult.divided_by_10}`}
-                        </Button>
-
-                        {singleResult.s_no && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              copyToClipboard(String(singleResult.s_no), "hero-sno")
-                            }
-                            className="text-[11px] font-semibold text-emerald-800 dark:text-emerald-300 hover:underline"
-                          >
-                            {copiedValue === "hero-sno" ? "Copied sNo!" : `Copy sNo: ${singleResult.s_no}`}
-                          </button>
-                        )}
+                      {/* Helper tip for user's workflow */}
+                      <div className="rounded-lg bg-emerald-500/10 px-3 py-1.5 text-[11px] font-medium text-emerald-900 dark:text-emerald-200">
+                        💡 <strong>Direct Action:</strong> Apne system ke page jumper me <strong>{singleResult.page_number}</strong> daalo → {singleResult.row_on_page ? `${singleResult.row_on_page}th number pe` : "usi page par"} ye pincode mil jayega!
                       </div>
                     </div>
                   )}
@@ -693,13 +762,14 @@ export function PincodePage() {
               {singleResult.services.length > 0 && (
                 <Card className="overflow-hidden p-0 shadow-md">
                   <div className="overflow-auto">
-                    <table className="w-full min-w-[820px] text-left text-sm">
+                    <table className="w-full min-w-[920px] text-left text-sm">
                       <thead className="bg-muted text-xs uppercase tracking-wider text-muted-foreground">
                         <tr>
                           <th className="p-3.5">Courier Partner</th>
                           <th className="p-3.5">Serial No (sNo)</th>
+                          <th className="p-3.5">System Page (OMS)</th>
                           <th className="p-3.5">sNo ÷ 10 Value</th>
-                          <th className="p-3.5">Warehouse</th>
+                          <th className="p-3.5">Warehouse / Store</th>
                           <th className="p-3.5">Status</th>
                           <th className="p-3.5 text-right">Quick Action</th>
                         </tr>
@@ -709,6 +779,8 @@ export function PincodePage() {
                           const isUpdating = actionBusyId === item.id;
                           const itemSno = item.s_no ?? item.id;
                           const itemDiv = item.divided_by_10 ?? parseFloat((itemSno / 10).toFixed(1));
+                          const itemPage = item.page_number ?? Math.ceil(itemSno / 10);
+                          const itemRow = item.row_on_page ?? (((itemSno - 1) % 10) + 1);
                           return (
                             <tr
                               key={item.id}
@@ -721,7 +793,31 @@ export function PincodePage() {
                                 {itemSno}
                               </td>
                               <td className="p-3.5">
-                                <div className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 font-mono font-extrabold text-emerald-800 dark:text-emerald-300">
+                                <div className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1">
+                                  <span className="font-mono font-extrabold text-emerald-800 dark:text-emerald-300">
+                                    Page {itemPage}
+                                  </span>
+                                  <span className="text-[11px] font-semibold text-emerald-700/80 dark:text-emerald-400">
+                                    (Row {itemRow})
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      copyToClipboard(String(itemPage), `row-page-${item.id}`)
+                                    }
+                                    className="opacity-70 hover:opacity-100 text-emerald-700 dark:text-emerald-300 ml-0.5"
+                                    title="Copy Page number"
+                                  >
+                                    {copiedValue === `row-page-${item.id}` ? (
+                                      <Check size={13} />
+                                    ) : (
+                                      <Copy size={13} />
+                                    )}
+                                  </button>
+                                </div>
+                              </td>
+                              <td className="p-3.5">
+                                <div className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 font-mono font-extrabold text-amber-900 dark:text-amber-200">
                                   <span>{itemDiv}</span>
                                   <button
                                     type="button"
@@ -739,8 +835,10 @@ export function PincodePage() {
                                   </button>
                                 </div>
                               </td>
-                              <td className="p-3.5 text-muted-foreground text-xs">
-                                {item.warehouse || "Default Warehouse"}
+                              <td className="p-3.5">
+                                <span className="inline-flex items-center gap-1 rounded bg-muted px-2 py-0.5 text-xs font-medium text-foreground">
+                                  🏬 {item.warehouse || "Default Warehouse"}
+                                </span>
                               </td>
                               <td className="p-3.5">
                                 <span
@@ -919,10 +1017,29 @@ export function PincodePage() {
                           </span>
 
                           {firstSno && divVal && (
-                            <span className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-xs font-mono font-extrabold text-emerald-800 dark:text-emerald-300">
-                              <Zap size={13} />
-                              sNo {firstSno} ÷ 10 = {divVal} (Page {Math.ceil(firstSno / 10)})
-                            </span>
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-xs font-mono font-extrabold text-emerald-800 dark:text-emerald-300">
+                                📄 Page {Math.ceil(firstSno / 10)} (Row {((firstSno - 1) % 10) + 1})
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  copyToClipboard(String(Math.ceil(firstSno / 10)), `bulk-page-${idx}`)
+                                }
+                                className="inline-flex items-center gap-1 rounded border border-border bg-background px-1.5 py-0.5 text-[11px] font-bold text-foreground hover:border-emerald-500 hover:text-emerald-600"
+                                title="Copy Page Number"
+                              >
+                                {copiedValue === `bulk-page-${idx}` ? (
+                                  <Check size={11} className="text-emerald-600" />
+                                ) : (
+                                  <Copy size={11} />
+                                )}
+                                {copiedValue === `bulk-page-${idx}` ? "Copied!" : `Page ${Math.ceil(firstSno / 10)}`}
+                              </button>
+                              <span className="inline-flex items-center gap-1 rounded bg-amber-500/15 px-2 py-0.5 text-xs font-mono font-bold text-amber-900 dark:text-amber-200">
+                                ÷10: {divVal}
+                              </span>
+                            </div>
                           )}
 
                           {hasService ? (

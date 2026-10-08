@@ -129,6 +129,7 @@ class PincodeServiceRead(BaseModel):
     divided_by_10: float | None = None
     formula: str | None = None
     page_number: int | None = None
+    row_on_page: int | None = None
     pincode: str
     state: str | None
     city: str | None
@@ -147,6 +148,7 @@ class PincodeSearchResponse(BaseModel):
     divided_by_10: float | None = None
     formula: str | None = None
     page_number: int | None = None
+    row_on_page: int | None = None
     was_divided_by_10: bool = False
     results: list[PincodeServiceRead]
 

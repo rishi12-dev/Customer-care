@@ -39,7 +39,16 @@ export function LoginPage() {
         <form className="grid gap-4" onSubmit={submit}>
           <label className="grid gap-1 text-sm font-medium">Email<Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></label>
           <label className="grid gap-1 text-sm font-medium">Password<Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required /></label>
-          {error && <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:bg-red-500/10 dark:text-red-200">{error}</div>}
+          {error && (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs leading-relaxed text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+              <div className="font-semibold">{error}</div>
+              {error.toLowerCase().includes("waking up") || error.toLowerCase().includes("connecting") ? (
+                <div className="mt-1 text-[11px] opacity-90">
+                  💡 <strong>Tip:</strong> Render free server band ho jata hai 15 min baad. Abhi boot ho raha hai, 15-20 second wait karke dubara click karein!
+                </div>
+              ) : null}
+            </div>
+          )}
           <Button disabled={busy}>{busy ? "Signing in..." : "Sign in"}</Button>
         </form>
       </Card>

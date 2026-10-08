@@ -72,6 +72,19 @@ def normalize_pincode(value) -> str:
     return pincode
 
 
+HEADER_SYNONYMS = {
+    "sNo": ["sno", "s_no", "s.no", "sr no", "sr.no", "serial no", "serial number", "id", "sl no", "sl.no"],
+    "date": ["date", "service_date", "updated_date", "entry_date", "created_date"],
+    "pincode": ["pincode", "pin code", "pin", "customer pincode", "postal_code", "zip"],
+    "state": ["state", "province"],
+    "city": ["city", "district", "town"],
+    "zone": ["zone", "region", "area"],
+    "active": ["active", "status", "is_active", "enabled"],
+    "warehouse": ["warehouse", "store", "hub", "location", "facility"],
+    "courier": ["courier", "courier partner", "current courier", "recommended courier", "carrier", "transporter"],
+}
+
+
 def read_pincode_excel(content: bytes, filename: str) -> tuple[pd.DataFrame | None, list[str], list[str]]:
     warnings: list[str] = []
     try:
@@ -79,14 +92,60 @@ def read_pincode_excel(content: bytes, filename: str) -> tuple[pd.DataFrame | No
     except Exception as exc:
         return None, [f"{filename}: unable to read Excel file: {exc}"], warnings
 
-    headers = list(frame.columns)
-    errors: list[str] = []
-    if headers != EXPECTED_HEADERS:
-        errors.append(f"{filename}: headers must be {EXPECTED_HEADERS}")
     if frame.empty:
-        errors.append(f"{filename}: file has no pincode rows")
+        return frame, [f"{filename}: file has no pincode rows"], warnings
+
+    # Normalize column names flexibly
+    col_mapping: dict[str, str] = {}
+    normalized_cols = {re.sub(r"[\s_\.\-]+", "", str(c).strip().lower()): c for c in frame.columns}
+
+    for canonical, syns in HEADER_SYNONYMS.items():
+        found = False
+        for s in syns:
+            s_clean = re.sub(r"[\s_\.\-]+", "", s.lower())
+            if s_clean in normalized_cols:
+                col_mapping[normalized_cols[s_clean]] = canonical
+                found = True
+                break
+        if not found and canonical.lower() in normalized_cols:
+            col_mapping[normalized_cols[canonical.lower()]] = canonical
+
+    frame = frame.rename(columns=col_mapping)
+
+    # Ensure required columns exist or can be defaulted
+    if "pincode" not in frame.columns:
+        return None, [f"{filename}: missing required 'pincode' column. Found columns: {list(frame.columns)}"], warnings
+
+    if "courier" not in frame.columns:
+        frame["courier"] = "Standard Courier"
+        warnings.append(f"{filename}: 'courier' column missing, defaulted to 'Standard Courier'")
+
+    if "warehouse" not in frame.columns:
+        default_wh = filename.replace(".xlsx", "").replace(".xls", "").strip() or "Default Warehouse"
+        frame["warehouse"] = default_wh
+        warnings.append(f"{filename}: 'warehouse' column missing, defaulted to '{default_wh}'")
+
+    if "active" not in frame.columns:
+        frame["active"] = False
+
+    if "date" not in frame.columns:
+        frame["date"] = None
+
+    if "state" not in frame.columns:
+        frame["state"] = None
+
+    if "city" not in frame.columns:
+        frame["city"] = None
+
+    if "zone" not in frame.columns:
+        frame["zone"] = None
+
+    if "sNo" not in frame.columns:
+        frame["sNo"] = [i + 1 for i in range(len(frame))]
+
+    errors: list[str] = []
     if len(frame) > 50000:
-        warnings.append(f"{filename}: large pincode file detected")
+        warnings.append(f"{filename}: large pincode file detected ({len(frame)} rows)")
     return frame, errors, warnings
 
 
@@ -178,12 +237,15 @@ def replace_pincode_services(db: Session, files: list[tuple[str, bytes]]) -> dic
 def _enrich_service_dict(r: PincodeService) -> dict:
     row_s_no = r.s_no if r.s_no is not None else r.id
     row_div = round(row_s_no / 10.0, 2)
+    page_num = math.ceil(row_s_no / 10.0) if row_s_no else None
+    row_on_page = ((row_s_no - 1) % 10) + 1 if row_s_no else None
     return {
         "id": r.id,
         "s_no": row_s_no,
         "divided_by_10": row_div,
         "formula": f"{row_s_no} ÷ 10 = {row_div}",
-        "page_number": math.ceil(row_s_no / 10.0),
+        "page_number": page_num,
+        "row_on_page": row_on_page,
         "pincode": r.pincode,
         "state": r.state,
         "city": r.city,
@@ -232,6 +294,7 @@ def search_pincode_services(db: Session, query: str) -> dict:
     divided_val = None
     formula = None
     page_num = None
+    row_on_page = None
 
     if enriched:
         first = enriched[0]
@@ -239,6 +302,7 @@ def search_pincode_services(db: Session, query: str) -> dict:
         divided_val = first["divided_by_10"]
         formula = first["formula"]
         page_num = first["page_number"]
+        row_on_page = first["row_on_page"]
     elif digits:
         try:
             num = int(digits)
@@ -246,6 +310,7 @@ def search_pincode_services(db: Session, query: str) -> dict:
             divided_val = round(num / 10.0, 2)
             formula = f"{num} ÷ 10 = {divided_val}"
             page_num = math.ceil(num / 10.0)
+            row_on_page = ((num - 1) % 10) + 1
         except ValueError:
             pass
 
@@ -256,6 +321,7 @@ def search_pincode_services(db: Session, query: str) -> dict:
         "divided_by_10": divided_val,
         "formula": formula,
         "page_number": page_num,
+        "row_on_page": row_on_page,
         "was_divided_by_10": was_divided,
         "results": enriched,
     }

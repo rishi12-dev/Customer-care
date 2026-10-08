@@ -26,7 +26,20 @@ export async function api<T>(path: string, init: RequestInit = {}, retry = true)
   if (!(init.body instanceof FormData)) headers.set("Content-Type", "application/json");
   if (tokens?.accessToken) headers.set("Authorization", `Bearer ${tokens.accessToken}`);
   if (tokens?.csrfToken) headers.set("X-CSRF-Token", tokens.csrfToken);
-  const response = await fetch(`${API_URL}${path}`, { ...init, headers, credentials: "include" });
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${path}`, { ...init, headers, credentials: "include" });
+  } catch (networkErr) {
+    if (retry) {
+      // Automatic retry after 2.5 seconds if server is waking up on Render
+      await new Promise((resolve) => setTimeout(resolve, 2500));
+      return api<T>(path, init, false);
+    }
+    throw new Error(
+      "Server connecting issue: Backend waking up (Render free tier takes ~30-45s after inactivity). Please retry in 15 seconds."
+    );
+  }
+
   if (response.status === 401 && retry && tokens?.refreshToken) {
     const refreshed = await fetch(`${API_URL}/auth/refresh`, {
       method: "POST",

@@ -44,6 +44,7 @@ export interface PincodeService {
   divided_by_10?: number | null;
   formula?: string | null;
   page_number?: number | null;
+  row_on_page?: number | null;
   pincode: string;
   state: string | null;
   city: string | null;
@@ -62,6 +63,7 @@ export interface PincodeSearchResponse {
   divided_by_10?: number | null;
   formula?: string | null;
   page_number?: number | null;
+  row_on_page?: number | null;
   was_divided_by_10: boolean;
   results: PincodeService[];
 }
