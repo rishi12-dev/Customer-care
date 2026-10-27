@@ -18,9 +18,9 @@ function Bars({ data }: { data: Array<{ name: string; value: number }> }) {
 export function DashboardPage() {
   const { user } = useAuth();
   const client = useQueryClient();
-  const { data, isLoading, error } = useQuery({ queryKey: ["dashboard"], queryFn: () => api<Dashboard>("/dashboard") });
-  const { data: calls } = useQuery({ queryKey: ["ndr-calls-dashboard"], queryFn: () => api<NdrCallsResponse>("/ndr/calls") });
-  const { data: performance } = useQuery({ queryKey: ["ndr-performance-dashboard"], queryFn: () => api<NdrPerformanceResponse>("/ndr/calls/performance"), enabled: user?.role === "admin" });
+  const { data, isLoading, error } = useQuery({ queryKey: ["dashboard"], queryFn: () => api<Dashboard>("/dashboard"), refetchInterval: 30000 });
+  const { data: calls } = useQuery({ queryKey: ["ndr-calls-dashboard"], queryFn: () => api<NdrCallsResponse>("/ndr/calls"), refetchInterval: 30000 });
+  const { data: performance } = useQuery({ queryKey: ["ndr-performance-dashboard"], queryFn: () => api<NdrPerformanceResponse>("/ndr/calls/performance"), enabled: user?.role === "admin", refetchInterval: 30000 });
   const sync = useMutation({
     mutationFn: () => api<{ checked: number; updated: number; errors: string[]; duration_ms: number }>("/tracking/delhivery/sync?limit=500", { method: "POST" }),
     onSuccess: () => client.invalidateQueries({ queryKey: ["dashboard"] })
