@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { ArchiveRestore, BarChart3, History, LogOut, MapPin, Moon, MoreVertical, Search, Settings, Truck, Upload, Users, X } from "lucide-react";
+import { ArchiveRestore, BarChart3, History, LogOut, MapPin, Moon, MoreVertical, PhoneCall, Search, Settings, Truck, Upload, Users, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "../components/ui/Button";
 import { RishiAssistant } from "../components/RishiAssistant";
@@ -9,6 +9,7 @@ import { cn } from "../utils/cn";
 const baseLinks = [
   { to: "/search", label: "Search", icon: Search },
   { to: "/dashboard", label: "Dashboard", icon: BarChart3 },
+  { to: "/calling", label: "My Calls", icon: PhoneCall },
 ];
 const shippingLinks = [{ to: "/ndr-dashboard", label: "NDR Dashboard", icon: Truck }];
 const adminLinks = [

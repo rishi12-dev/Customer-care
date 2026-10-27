@@ -106,6 +106,21 @@ class NdrTrackingRecord(Base):
     )
 
 
+class NdrCallFeedback(Base):
+    __tablename__ = "ndr_call_feedback"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    ndr_record_id: Mapped[int] = mapped_column(ForeignKey("ndr_tracking_records.id", ondelete="CASCADE"), unique=True, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    disposition: Mapped[str] = mapped_column(String(80), nullable=False)
+    remarks: Mapped[str] = mapped_column(Text, default="")
+    callback_date: Mapped[date | None] = mapped_column(Date)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (Index("ix_ndr_feedback_record_user", "ndr_record_id", "user_id"),)
+
+
 class NdrDailySnapshot(Base):
     __tablename__ = "ndr_daily_snapshots"
 

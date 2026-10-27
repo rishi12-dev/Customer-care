@@ -16,3 +16,11 @@ services:
         generateValue: true
       - key: CORS_ORIGINS
         sync: false
+      - key: APP_TIMEZONE
+        value: Asia/Kolkata
+      - key: MANUAL_NDR_ONLY
+        value: "true"
+      - key: INITIAL_ADMIN_EMAIL
+        sync: false
+      - key: INITIAL_ADMIN_PASSWORD
+        sync: false

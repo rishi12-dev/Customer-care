@@ -5,6 +5,7 @@ from app.schemas.dto import UploadCommitResponse, UploadPreview
 from app.services.excel_service import preview_excel
 from app.services.ndr_service import preview_ndr_file
 from app.services.upload_job_service import get_upload_job, start_ndr_upload_job, start_upload_job
+from app.config.settings import get_settings
 
 
 router = APIRouter(prefix="/upload", tags=["upload"])
@@ -26,6 +27,8 @@ def preview(file: UploadFile = File(...), user: User = Depends(require_admin)):
 
 @router.post("", response_model=UploadCommitResponse)
 def upload(request: Request, file: UploadFile = File(...), user: User = Depends(require_admin)):
+    if get_settings().manual_ndr_only:
+        raise HTTPException(status_code=403, detail="Daily order upload is disabled. Use Manual NDR Tracking Upload.")
     job_id = start_upload_job(_read_excel_file(file), file.filename, user.id, request_ip(request))
     job = get_upload_job(job_id)
     return job

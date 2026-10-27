@@ -38,6 +38,30 @@ export interface NdrTrackingRecord {
   raw_data: Record<string, string | number | boolean | null>;
 }
 
+export interface NdrCall {
+  id: number;
+  order_no: string | null;
+  docket_number: string | null;
+  customer_name: string;
+  phone: string | null;
+  alternate: string | null;
+  dx_mail: string | null;
+  shipment: string;
+  courier_remark: string | null;
+  oms_status: string | null;
+  our_edd: string | null;
+  event_time: string | null;
+  agent: string | null;
+  feedback: { disposition: string; remarks: string; callback_date: string | null; updated_at: string | null } | null;
+}
+
+export interface NdrCallsResponse {
+  date: string;
+  total: number;
+  completed: number;
+  calls: NdrCall[];
+}
+
 export interface PincodeService {
   id: number;
   s_no?: number | null;

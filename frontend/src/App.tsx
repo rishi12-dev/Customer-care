@@ -8,6 +8,7 @@ import { NdrDashboardPage } from "./pages/NdrDashboardPage";
 import { PincodePage } from "./pages/PincodePage";
 import { SearchPage } from "./pages/SearchPage";
 import { UploadPage } from "./pages/UploadPage";
+import { CallingPage } from "./pages/CallingPage";
 
 export function App() {
   return (
@@ -18,6 +19,7 @@ export function App() {
           <Route path="/" element={<Navigate to="/search" replace />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/calling" element={<CallingPage />} />
           <Route path="/pincode" element={<PincodePage />} />
           <Route element={<ProtectedRoute allowedRoles={["admin", "shipping"]} />}>
             <Route path="/ndr-dashboard" element={<NdrDashboardPage />} />

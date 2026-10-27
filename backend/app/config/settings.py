@@ -1,11 +1,13 @@
 from functools import lru_cache
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     app_name: str = "CourierOps"
     environment: str = "development"
+    app_timezone: str = "Asia/Kolkata"
+    manual_ndr_only: bool = True
     database_url: str = "postgresql+psycopg://postgres:password@localhost:5432/courierops"
     jwt_secret_key: str
     jwt_refresh_secret_key: str
@@ -25,6 +27,17 @@ class Settings(BaseSettings):
         if isinstance(value, str):
             return [origin.strip() for origin in value.split(",") if origin.strip()]
         return value
+
+    @model_validator(mode="after")
+    def require_production_secrets(self):
+        if self.environment.casefold() == "production":
+            if self.jwt_secret_key.startswith("change-") or self.jwt_refresh_secret_key.startswith("change-"):
+                raise ValueError("Production JWT secrets must be replaced with random secrets")
+            if self.initial_admin_password == "ChangeMe@12345":
+                raise ValueError("Production initial admin password must be replaced")
+            if not self.cors_origins:
+                raise ValueError("At least one production CORS origin is required")
+        return self
 
 
 @lru_cache
