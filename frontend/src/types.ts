@@ -62,6 +62,13 @@ export interface NdrCallsResponse {
   calls: NdrCall[];
 }
 
+export interface NdrPerformanceResponse {
+  date: string;
+  total_assigned: number;
+  total_completed: number;
+  agents: Array<{ agent: string; assigned: number; completed: number; pending: number }>;
+}
+
 export interface PincodeService {
   id: number;
   s_no?: number | null;

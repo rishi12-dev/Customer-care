@@ -1,10 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Activity, Building2, CheckCircle2, Clock, Database, MapPin, Package, RefreshCw, Truck } from "lucide-react";
+import { Activity, Building2, CheckCircle2, Clock, Database, MapPin, Package, PhoneCall, RefreshCw, Truck } from "lucide-react";
 import { api } from "../api/client";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { useAuth } from "../context/AuthContext";
-import type { Dashboard } from "../types";
+import type { Dashboard, NdrCallsResponse, NdrPerformanceResponse } from "../types";
 
 function Metric({ label, value, icon: Icon }: { label: string; value: number | string; icon: typeof Package }) {
   return <Card><div className="flex items-center justify-between"><div><p className="text-sm text-slate-500">{label}</p><p className="mt-1 text-3xl font-bold">{value}</p></div><Icon className="text-primary" /></div></Card>;
@@ -19,6 +19,8 @@ export function DashboardPage() {
   const { user } = useAuth();
   const client = useQueryClient();
   const { data, isLoading, error } = useQuery({ queryKey: ["dashboard"], queryFn: () => api<Dashboard>("/dashboard") });
+  const { data: calls } = useQuery({ queryKey: ["ndr-calls-dashboard"], queryFn: () => api<NdrCallsResponse>("/ndr/calls") });
+  const { data: performance } = useQuery({ queryKey: ["ndr-performance-dashboard"], queryFn: () => api<NdrPerformanceResponse>("/ndr/calls/performance"), enabled: user?.role === "admin" });
   const sync = useMutation({
     mutationFn: () => api<{ checked: number; updated: number; errors: string[]; duration_ms: number }>("/tracking/delhivery/sync?limit=500", { method: "POST" }),
     onSuccess: () => client.invalidateQueries({ queryKey: ["dashboard"] })
@@ -38,6 +40,7 @@ export function DashboardPage() {
           <Button disabled={sync.isPending} onClick={() => sync.mutate()}><RefreshCw size={18} /> {sync.isPending ? "Syncing" : "Sync Delhivery"}</Button>
         </Card>
       )}
+      {calls && <><div className="grid gap-4 md:grid-cols-3"><Metric label="NDR Calls Allocated" value={calls.total} icon={PhoneCall} /><Metric label="NDR Calls Completed" value={calls.completed} icon={CheckCircle2} /><Metric label="NDR Calls Pending" value={calls.total - calls.completed} icon={Clock} /></div>{user?.role === "admin" && performance && <Card><h2 className="mb-4 font-semibold">Agent Calling Performance</h2><div className="overflow-x-auto"><table className="w-full min-w-[520px] text-left text-sm"><thead><tr className="border-b border-border"><th className="p-2">Agent</th><th className="p-2">Allocated</th><th className="p-2">Completed</th><th className="p-2">Pending</th></tr></thead><tbody>{performance.agents.map((row) => <tr key={row.agent} className="border-b border-border"><td className="p-2 font-semibold">{row.agent}</td><td className="p-2">{row.assigned}</td><td className="p-2 text-emerald-600">{row.completed}</td><td className="p-2 text-amber-600">{row.pending}</td></tr>)}</tbody></table></div></Card>}</>}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Metric label="Total Orders" value={data.total_orders} icon={Package} />
         <Metric label="Delivered" value={data.delivered} icon={CheckCircle2} />
