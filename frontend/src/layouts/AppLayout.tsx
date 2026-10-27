@@ -9,7 +9,7 @@ import { cn } from "../utils/cn";
 const baseLinks = [
   { to: "/search", label: "Search", icon: Search },
   { to: "/dashboard", label: "Dashboard", icon: BarChart3 },
-  { to: "/calling", label: "My Calls", icon: PhoneCall },
+  { to: "/calling", label: "My NDR Calls", icon: PhoneCall },
 ];
 const shippingLinks = [{ to: "/ndr-dashboard", label: "NDR Dashboard", icon: Truck }];
 const adminLinks = [
