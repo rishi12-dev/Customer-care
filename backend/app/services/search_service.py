@@ -3,6 +3,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from app.models.entities import AuditAction, Order, SearchHistory, User
 from app.services.audit_service import audit
+from app.services.central_courier_service import CentralCourierError, is_configured, search_shipments
 
 
 def detect_query_type(query: str) -> str:
@@ -21,15 +22,24 @@ def search_orders(db: Session, query: str, user: User, ip_address: str | None) -
     started = perf_counter()
     term = query.strip()
     like = f"%{term}%"
-    results = (
-        db.query(Order)
-        .filter(or_(Order.order_no.ilike(like), Order.docket_number.ilike(like), Order.customer_phone_number.ilike(like), Order.alt_no.ilike(like)))
-        .order_by(Order.id.desc())
-        .limit(50)
-        .all()
-    )
+    source = "database"
+    if is_configured():
+        try:
+            results = search_shipments(term)
+            source = "central_courier_api"
+        except CentralCourierError:
+            results = []
+            source = "central_courier_api_unavailable"
+    else:
+        results = (
+            db.query(Order)
+            .filter(or_(Order.order_no.ilike(like), Order.docket_number.ilike(like), Order.customer_phone_number.ilike(like), Order.alt_no.ilike(like)))
+            .order_by(Order.id.desc())
+            .limit(50)
+            .all()
+        )
     detected = detect_query_type(term)
     db.add(SearchHistory(user_id=user.id, query=term, detected_type=detected, result_count=len(results)))
     audit(db, user, AuditAction.search, ip_address, {"query": term, "results": len(results)})
     db.commit()
-    return {"query": term, "detected_type": detected, "duration_ms": int((perf_counter() - started) * 1000), "results": results}
+    return {"query": term, "detected_type": detected, "duration_ms": int((perf_counter() - started) * 1000), "results": results, "source": source}

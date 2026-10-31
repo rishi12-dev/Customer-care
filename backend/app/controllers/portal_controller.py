@@ -7,6 +7,7 @@ from app.config.database import get_db
 from app.models.entities import AppSetting, Backup, Order, PincodeService, SearchHistory, UploadHistory, User
 from app.schemas.dto import DashboardResponse, OrderRead, SearchResponse, SettingUpdate
 from app.services.excel_service import restore_backup
+from app.services.central_courier_service import CentralCourierError, is_configured, refresh_ndr_mirror, search_ndr, shipment_followups
 from app.services.ndr_dashboard_service import excel_report, md_excel_report, ndr_dashboard, pdf_report
 from app.services.ndr_service import search_tracking_history, tracking_history_for_order
 from app.services.rishi_assistant_service import shipment_assistant_reply
@@ -87,8 +88,29 @@ def order_tracking_history(order_id: int, user: User = Depends(current_user), db
     return {"order_id": order_id, "results": tracking_history_for_order(db, order)}
 
 
+@router.get("/shipment-tracking-history")
+def shipment_tracking_history(
+    courier: str = Query(min_length=2, max_length=120),
+    awb: str = Query(min_length=2, max_length=120),
+    user: User = Depends(current_user),
+    db: Session = Depends(get_db),
+):
+    if not is_configured():
+        order = db.query(Order).filter(Order.docket_number == awb).first()
+        return {"results": tracking_history_for_order(db, order) if order else []}
+    try:
+        return {"results": shipment_followups(courier, awb)}
+    except CentralCourierError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
 @router.get("/ndr/search")
 def ndr_tracking_search(q: str = Query(min_length=2, max_length=160), user: User = Depends(current_user), db: Session = Depends(get_db)):
+    if is_configured():
+        try:
+            return {"query": q, "results": search_ndr(q)}
+        except CentralCourierError as exc:
+            raise HTTPException(status_code=502, detail=str(exc)) from exc
     return {"query": q, "results": search_tracking_history(db, q)}
 
 
@@ -106,6 +128,12 @@ def ndr_management_dashboard(
     user: User = Depends(require_ndr_dashboard_access),
     db: Session = Depends(get_db),
 ):
+    if is_configured():
+        try:
+            refresh_ndr_mirror(db)
+        except CentralCourierError:
+            # Preserve the last successful mirror when the upstream API is briefly unavailable.
+            db.rollback()
     return ndr_dashboard(
         db,
         {

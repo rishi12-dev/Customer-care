@@ -103,7 +103,7 @@ export function SearchPage() {
       return;
     }
     try {
-      const data = await api<{ order_id: number; results: NdrTrackingRecord[] }>(`/orders/${order.id}/tracking-history`);
+      const data = await api<{ results: NdrTrackingRecord[] }>(`/shipment-tracking-history?courier=${encodeURIComponent(order.shipment)}&awb=${encodeURIComponent(order.docket_number)}`);
       setHistoryByOrder((current) => ({ ...current, [order.id]: data.results }));
       if (!data.results.length) {
         setHistoryMessage("No tracking history found for this order.");

@@ -16,6 +16,10 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:5173"]
     delhivery_api_token: str | None = None
     delhivery_tracking_url: str = "https://track.delhivery.com/api/v1/packages/json/"
+    central_courier_api_url: str | None = None
+    central_courier_api_key: str | None = None
+    central_courier_api_timeout_seconds: int = 20
+    central_courier_ndr_refresh_seconds: int = 300
     initial_admin_email: str = "admin@courierops.local"
     initial_admin_password: str = "ChangeMe@12345"
 
